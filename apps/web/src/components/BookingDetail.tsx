@@ -14,7 +14,6 @@ import {
   RefreshCw,
   Settings2,
   ShieldCheck,
-  Sparkles,
   Star,
   TicketCheck,
   UsersRound,
@@ -479,6 +478,7 @@ export function BookingDetail(props: {
   onCancel: () => Promise<void>;
 }): React.JSX.Element {
   const [approvalOffer, setApprovalOffer] = useState<Offer>();
+  const [sort, setSort] = useState<'price' | 'score' | 'earliest'>('price');
 
   if (props.loading) {
     return (
@@ -500,6 +500,13 @@ export function BookingDetail(props: {
   }
 
   const { booking, offers, approval, checkout, audit } = props.detail;
+  const sortedOffers = [...offers].sort((a, b) => {
+    if (sort === 'earliest') {
+      return Date.parse(a.startAt ?? '') - Date.parse(b.startAt ?? '');
+    }
+    if (sort === 'score') return b.score - a.score;
+    return a.finalPrice.amountMinor - b.finalPrice.amountMinor;
+  });
   const visibleCheckout =
     checkout !== undefined && ['booked', 'awaiting_user_action'].includes(booking.status)
       ? checkout
@@ -641,13 +648,25 @@ export function BookingDetail(props: {
       )}
 
       <div className="filter-pills" role="tablist" aria-label="Sort">
-        <button type="button" className="filter-pill is-active">
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'price' ? 'is-active' : ''}`}
+          onClick={() => setSort('price')}
+        >
           Lowest to Highest
         </button>
-        <button type="button" className="filter-pill">
-          Preferred
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'score' ? 'is-active' : ''}`}
+          onClick={() => setSort('score')}
+        >
+          Best match
         </button>
-        <button type="button" className="filter-pill">
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'earliest' ? 'is-active' : ''}`}
+          onClick={() => setSort('earliest')}
+        >
           Earliest
         </button>
       </div>
@@ -691,11 +710,7 @@ export function BookingDetail(props: {
               {offers.length} option{offers.length === 1 ? '' : 's'}
             </h3>
           </div>
-          {offers.length === 0 ? null : (
-            <span className="muted">
-              <Sparkles size={14} /> Best fit first
-            </span>
-          )}
+          {offers.length === 0 ? null : <span className="muted">Sorted live</span>}
         </div>
         {offers.length === 0 ? (
           <div className="offers-empty">
@@ -705,7 +720,7 @@ export function BookingDetail(props: {
           </div>
         ) : (
           <div className="ticket-list">
-            {offers.map((offer) => (
+            {sortedOffers.map((offer) => (
               <OfferCard
                 key={offer.id}
                 offer={offer}

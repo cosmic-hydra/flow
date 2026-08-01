@@ -2,46 +2,14 @@ import type { Message } from '@flow/contracts';
 import {
   ArrowLeftRight,
   ArrowUp,
-  Bot,
   CalendarDays,
   ChevronDown,
-  Clock3,
   Plane,
   ShieldCheck,
   UserRound,
   Users,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-
-const savedTrips = [
-  {
-    airline: 'Flow Demo Air',
-    from: 'BLR',
-    to: 'SIN',
-    depart: '08:40',
-    arrive: '14:05',
-    date: 'Sep 10',
-    prompt: 'Compare refundable flights from Bengaluru to Singapore next month under $650',
-  },
-  {
-    airline: 'District Cinema',
-    from: 'HYD',
-    to: 'MOV',
-    depart: '19:30',
-    arrive: '22:10',
-    date: 'Sat',
-    prompt: 'Find two adjacent center seats for a movie this weekend under ₹1,500 total.',
-  },
-  {
-    airline: 'Coastal Stay',
-    from: 'GOA',
-    to: 'HTL',
-    depart: 'Check-in',
-    arrive: '2 nts',
-    date: 'Fri',
-    prompt: 'Schedule a hotel search in Goa next Friday for two nights, free cancellation.',
-  },
-] as const;
 
 function MessageBody({ content }: { content: string }): React.JSX.Element {
   const blocks = content.split(/\n{2,}/u).filter((block) => block.trim() !== '');
@@ -106,138 +74,87 @@ export function ChatView(props: {
     <div className={`chat-view ${showHero ? 'chat-view-hero' : ''}`}>
       <div className="chat-scroll">
         {showHero ? (
-          <section className="plan-stage" aria-label="Plan your trip">
-            <div className="plan-glow" aria-hidden="true" />
-            <header className="plan-heading">
-              <div>
-                <p className="plan-kicker">Flow</p>
-                <h1>Plan your trip</h1>
-              </div>
-              <button
-                type="button"
-                className="plan-avatar"
-                onClick={props.onOpenSetup}
-                aria-label="Open setup"
-              >
-                F
-              </button>
-            </header>
+          <section className="apple-stage" aria-label="Plan your trip">
+            <div className="apple-stage__atmosphere" aria-hidden="true" />
+            <div className="apple-stage__content">
+              <p className="apple-brand">Flow</p>
+              <h1 className="apple-headline">Travel, clarified.</h1>
+              <p className="apple-support">
+                Search flights and stays, compare real totals, and approve checkout yourself.
+              </p>
 
-            <div className="frost-card">
-              <div className="route-stack">
-                <label className="route-field">
-                  <span>From</span>
-                  <input
-                    value={from}
-                    onChange={(event) => setFrom(event.target.value)}
-                    aria-label="From"
-                  />
-                </label>
+              <div className="search-panel">
+                <div className="search-panel__route">
+                  <label className="search-field">
+                    <span>From</span>
+                    <input
+                      value={from}
+                      onChange={(event) => setFrom(event.target.value)}
+                      aria-label="From"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="search-swap"
+                    onClick={swapRoute}
+                    aria-label="Swap origin and destination"
+                  >
+                    <ArrowLeftRight size={15} />
+                  </button>
+                  <label className="search-field">
+                    <span>To</span>
+                    <input
+                      value={to}
+                      onChange={(event) => setTo(event.target.value)}
+                      aria-label="To"
+                    />
+                  </label>
+                </div>
+
+                <div className="search-panel__meta">
+                  <label className="search-field search-field--inline">
+                    <span>Departure</span>
+                    <span className="search-field__control">
+                      <CalendarDays size={15} aria-hidden="true" />
+                      <input
+                        type="date"
+                        value={departDate}
+                        onChange={(event) => setDepartDate(event.target.value)}
+                        aria-label="Departure date"
+                      />
+                    </span>
+                  </label>
+                  <label className="search-field search-field--inline">
+                    <span>Travelers</span>
+                    <span className="search-field__control">
+                      <Users size={15} aria-hidden="true" />
+                      <select
+                        value={party}
+                        onChange={(event) => setParty(event.target.value)}
+                        aria-label="Travelers"
+                      >
+                        {['1', '2', '3', '4', '5', '6'].map((count) => (
+                          <option key={count} value={count}>
+                            {count}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown size={14} aria-hidden="true" />
+                    </span>
+                  </label>
+                </div>
+
                 <button
                   type="button"
-                  className="route-swap"
-                  onClick={swapRoute}
-                  aria-label="Swap origin and destination"
+                  className="button button-ink button-full search-submit"
+                  disabled={props.sending}
+                  onClick={searchFlights}
                 >
-                  <ArrowLeftRight size={16} />
+                  <Plane size={16} />
+                  {props.sending ? 'Searching…' : 'Search flights'}
                 </button>
-                <label className="route-field">
-                  <span>To</span>
-                  <input
-                    value={to}
-                    onChange={(event) => setTo(event.target.value)}
-                    aria-label="To"
-                  />
-                </label>
               </div>
-
-              <div className="trip-meta-row">
-                <label className="meta-chip">
-                  <span>Departure</span>
-                  <span className="meta-chip-value">
-                    <CalendarDays size={15} />
-                    <input
-                      type="date"
-                      value={departDate}
-                      onChange={(event) => setDepartDate(event.target.value)}
-                      aria-label="Departure date"
-                    />
-                  </span>
-                </label>
-                <label className="meta-chip">
-                  <span>Travelers</span>
-                  <span className="meta-chip-value">
-                    <Users size={15} />
-                    <select
-                      value={party}
-                      onChange={(event) => setParty(event.target.value)}
-                      aria-label="Travelers"
-                    >
-                      {['1', '2', '3', '4', '5', '6'].map((count) => (
-                        <option key={count} value={count}>
-                          {count}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} />
-                  </span>
-                </label>
-              </div>
-
-              <button
-                type="button"
-                className="button button-ink button-full"
-                disabled={props.sending}
-                onClick={searchFlights}
-              >
-                <Plane size={16} />
-                Search flights
-              </button>
             </div>
-
-            <section className="saved-trips">
-              <div className="saved-trips-head">
-                <h2>Saved trips</h2>
-                <span>Tap to book</span>
-              </div>
-              <div className="saved-trips-rail">
-                {savedTrips.map((trip) => (
-                  <button
-                    key={trip.prompt}
-                    type="button"
-                    className="saved-trip-card"
-                    disabled={props.sending}
-                    onClick={() => submit(trip.prompt)}
-                  >
-                    <div className="saved-trip-airline">
-                      <span className="airline-mark">{trip.airline.slice(0, 1)}</span>
-                      <strong>{trip.airline}</strong>
-                    </div>
-                    <div className="saved-trip-route">
-                      <div>
-                        <b>{trip.depart}</b>
-                        <small>{trip.from}</small>
-                      </div>
-                      <div className="saved-trip-line" aria-hidden="true">
-                        <Plane size={12} />
-                      </div>
-                      <div>
-                        <b>{trip.arrive}</b>
-                        <small>{trip.to}</small>
-                      </div>
-                    </div>
-                    <span className="saved-trip-date">{trip.date}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            {!props.modelConfigured ? (
-              <p className="plan-note">
-                <Bot size={14} /> Local planner is active — searches still create real demo
-                bookings.
-              </p>
-            ) : null}
           </section>
         ) : (
           <div className="message-list">
@@ -246,7 +163,7 @@ export function ChatView(props: {
               .map((message) => (
                 <article key={message.id} className={`message message-${message.role}`}>
                   <div className="message-avatar" aria-hidden="true">
-                    {message.role === 'assistant' ? <Bot size={17} /> : <UserRound size={17} />}
+                    {message.role === 'assistant' ? 'F' : <UserRound size={17} />}
                   </div>
                   <div className="message-content">
                     <div className="message-meta">
@@ -264,9 +181,7 @@ export function ChatView(props: {
               ))}
             {props.sending ? (
               <article className="message message-assistant">
-                <div className="message-avatar">
-                  <Bot size={17} />
-                </div>
+                <div className="message-avatar">F</div>
                 <div className="message-content message-thinking">
                   <span />
                   <span />
@@ -293,7 +208,7 @@ export function ChatView(props: {
             }}
             rows={1}
             placeholder={
-              showHero ? 'Or describe anything to book…' : 'Describe anything you want to book…'
+              showHero ? 'Or describe a hotel, movie, or trip…' : 'Describe what you want to book…'
             }
             aria-label="Message Flow"
           />
@@ -310,10 +225,7 @@ export function ChatView(props: {
         {!showHero ? (
           <div className="composer-meta">
             <span>
-              <ShieldCheck size={14} /> Checkout requires your explicit approval
-            </span>
-            <span>
-              <Clock3 size={14} /> Scheduled searches run in the background
+              <ShieldCheck size={14} /> Checkout always needs your approval
             </span>
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import { Menu, Plus, Settings2, UserRound } from 'lucide-react';
+import { Menu, Plus, Settings2 } from 'lucide-react';
 
 export function TopBar(props: {
   eyebrow: string;
@@ -26,12 +26,10 @@ export function TopBar(props: {
         <span className="brand-mark" aria-hidden="true">
           F
         </span>
-        {!props.glass ? (
-          <span className="brand-lockup-copy">
-            <strong>Flow</strong>
-            <small>{props.title}</small>
-          </span>
-        ) : null}
+        <span className="brand-lockup-copy">
+          <strong>Flow</strong>
+          {!props.glass ? <small>{props.title}</small> : null}
+        </span>
       </button>
 
       <nav className="top-nav" aria-label="Categories">
@@ -69,10 +67,6 @@ export function TopBar(props: {
             <Settings2 size={16} />
           </button>
         )}
-        <button className="button button-ink button-small sign-in-chip" type="button" tabIndex={-1}>
-          <UserRound size={14} />
-          Sign in
-        </button>
       </div>
     </header>
   );

@@ -90,13 +90,13 @@ async function main() {
   await dismissSetup(page);
   await page.waitForTimeout(1_200);
 
-  // Setup completion creates a fresh conversation → plan-your-trip stage
-  await page.getByRole('heading', { name: /Plan your trip/i }).waitFor({ timeout: 12_000 });
+  // Setup completion creates a fresh conversation → Apple-style search stage
+  await page.getByRole('heading', { name: /Travel, clarified/i }).waitFor({ timeout: 12_000 });
   await page.screenshot({ path: path.join(shotDir, '01-hero.png'), fullPage: false });
 
   await page.getByRole('button', { name: /Search flights/i }).click();
-  await page.waitForTimeout(3_500);
-  await page.screenshot({ path: path.join(shotDir, '03-chat.png'), fullPage: false });
+  await page.waitForTimeout(4_500);
+  await page.screenshot({ path: path.join(shotDir, '03-results-or-chat.png'), fullPage: false });
 
   await openSidebar(page);
   await page

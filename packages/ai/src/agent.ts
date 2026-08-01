@@ -89,7 +89,58 @@ function detectBudget(text: string): { amountMinor: number; currency: string } |
   return undefined;
 }
 
-function buildLocalBookingInput(
+function parsePlace(raw: string): { label: string; code?: string; city: string } {
+  const trimmed = raw.trim().replace(/[.,;]+$/u, '');
+  const withCode = /^(.+?)\s*\(([A-Za-z0-9]{2,12})\)\s*$/u.exec(trimmed);
+  if (withCode?.[1] !== undefined && withCode[2] !== undefined) {
+    const label = withCode[1].trim();
+    return { label, code: withCode[2].toUpperCase(), city: label };
+  }
+  if (/^[A-Za-z]{3}$/u.test(trimmed)) {
+    return {
+      label: trimmed.toUpperCase(),
+      code: trimmed.toUpperCase(),
+      city: trimmed.toUpperCase(),
+    };
+  }
+  return { label: trimmed, city: trimmed };
+}
+
+function parseRoute(text: string): {
+  origin?: { label: string; code?: string; city: string };
+  destination?: { label: string; code?: string; city: string };
+} {
+  const match = text.match(
+    /\bfrom\s+(.+?)\s+to\s+(.+?)(?=\s+departing|\s+for\s+\d|\s+under|\s+best|\s+refundable|\s*,|$)/iu,
+  );
+  if (match?.[1] === undefined || match[2] === undefined) return {};
+  return { origin: parsePlace(match[1]), destination: parsePlace(match[2]) };
+}
+
+function parseDepartDate(text: string, nowMs: number): { start: Date; end: Date } {
+  const iso = text.match(/\bdeparting\s+(\d{4}-\d{2}-\d{2})\b/iu)?.[1];
+  const start = new Date(nowMs + 14 * 24 * 60 * 60_000);
+  if (iso !== undefined) {
+    const [y, m, d] = iso.split('-').map(Number);
+    if (y !== undefined && m !== undefined && d !== undefined) {
+      start.setUTCFullYear(y, m - 1, d);
+    }
+  }
+  start.setUTCHours(8, 0, 0, 0);
+  const end = new Date(start.getTime() + 12 * 60 * 60_000);
+  return { start, end };
+}
+
+function parsePartySize(text: string): number {
+  const travelers = text.match(/\bfor\s+(\d+)\s+traveler/iu)?.[1];
+  if (travelers !== undefined) return Math.min(20, Math.max(1, Number(travelers)));
+  const forN = text.match(/\bfor\s+(\d+)\b/iu)?.[1];
+  if (forN !== undefined) return Math.min(20, Math.max(1, Number(forN)));
+  return 1;
+}
+
+/** Exported for unit tests — builds a booking plan from free text without OpenAI. */
+export function buildLocalBookingInput(
   request: string,
   context: ChatToolContext,
 ): CreateBookingInput | undefined {
@@ -105,22 +156,19 @@ function buildLocalBookingInput(
 
   const category = detectCategory(trimmed);
   const now = Date.parse(context.currentTime);
-  const start = new Date(now + 14 * 24 * 60 * 60_000);
-  start.setUTCHours(8, 0, 0, 0);
-  const end = new Date(start.getTime() + 12 * 60 * 60_000);
+  const { start, end } = parseDepartDate(trimmed, now);
   const researchAt = new Date(context.currentTime).toISOString();
   const deadline = new Date(start.getTime() - 60 * 60_000).toISOString();
   const budget = detectBudget(trimmed);
   const title =
     trimmed.length > 80 ? `${trimmed.slice(0, 77).trim()}…` : trimmed.replace(/\s+/gu, ' ');
+  const route = parseRoute(trimmed);
 
   const intent: CreateBookingInput['intent'] = {
     category,
     title,
     description: trimmed,
-    partySize: /\bfor\s+(\d+)\b/iu.test(trimmed)
-      ? Number(/\bfor\s+(\d+)\b/iu.exec(trimmed)?.[1] ?? 1)
-      : 1,
+    partySize: parsePartySize(trimmed),
     preferredProviders: ['demo'],
     excludedProviders: [],
     constraints: [],
@@ -132,9 +180,19 @@ function buildLocalBookingInput(
     },
   };
   if (budget !== undefined) intent.budget = budget;
-  if (category === 'flight') {
+  if (route.origin !== undefined) intent.origin = route.origin;
+  if (route.destination !== undefined) intent.destination = route.destination;
+  if (category === 'flight' && intent.origin === undefined) {
     intent.origin = { label: 'Bengaluru', code: 'BLR', city: 'Bengaluru' };
+  }
+  if (category === 'flight' && intent.destination === undefined) {
     intent.destination = { label: 'Singapore', code: 'SIN', city: 'Singapore' };
+  }
+  if (category === 'hotel' && intent.destination === undefined) {
+    const inPlace = trimmed.match(
+      /\bin\s+([A-Za-z][A-Za-z\s-]{1,40}?)(?=\s+next|\s+for|\s+under|$)/iu,
+    );
+    if (inPlace?.[1] !== undefined) intent.destination = parsePlace(inPlace[1]);
   }
 
   return {
@@ -258,7 +316,7 @@ export class BookingChatAgent {
     if (plan === undefined) {
       return {
         content:
-          'I can create a structured booking from chat even without OPENAI_API_KEY. Try something like “Find flights from Bengaluru to Singapore under $650” or use Structured booking.',
+          'I can book without an AI key. Try “Find flights from Bengaluru (BLR) to Singapore (SIN) departing 2026-09-10 for 1 traveler” or use New booking.',
         bookingIds: [],
         toolCalls: [],
       };
@@ -283,7 +341,7 @@ export class BookingChatAgent {
             ? (searched as { offers: unknown[] }).offers.length
             : 0;
         return {
-          content: `Created a ${plan.intent.category} booking and ranked ${offers} offer${offers === 1 ? '' : 's'} with the demo provider. Open Bookings to compare totals and approve checkout — the chat planner is using the local fallback until OPENAI_API_KEY is set.`,
+          content: `Found ${offers} ${plan.intent.category} option${offers === 1 ? '' : 's'}. Opening Bookings so you can compare totals and approve checkout.`,
           bookingIds: [...bookingIds],
           toolCalls: trace,
         };

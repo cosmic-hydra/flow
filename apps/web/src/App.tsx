@@ -208,8 +208,20 @@ export function App(): React.JSX.Element {
         setConversations((current) => [created.conversation, ...current]);
         setSelectedConversationId(activeConversationId);
       }
-      await api.sendMessage(activeConversationId, content, crypto.randomUUID());
-      await Promise.all([loadMessages(activeConversationId), refreshBookings()]);
+      const response = await api.sendMessage(activeConversationId, content, crypto.randomUUID());
+      const bookingsList = await refreshBookings();
+      await loadMessages(activeConversationId);
+      const createdBookingId = response.bookingIds[0];
+      if (createdBookingId !== undefined) {
+        setSelectedBookingId(createdBookingId);
+        await refreshBooking(createdBookingId, true);
+        setView('bookings');
+        setSidebarOpen(false);
+        setToast({
+          tone: 'success',
+          message: `Found options for your search — ${bookingsList.find((b) => b.id === createdBookingId)?.intent.title ?? 'open Bookings to compare'}.`,
+        });
+      }
     } catch (error) {
       showError(error);
       if (activeConversationId !== undefined) {
