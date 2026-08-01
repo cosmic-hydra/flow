@@ -9,6 +9,8 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.flow/**',
       'third_party/**',
+      'scripts/**/*.mjs',
+      'scripts/**/*.cjs',
     ],
   },
   eslint.configs.recommended,

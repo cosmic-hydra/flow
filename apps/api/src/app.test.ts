@@ -47,7 +47,29 @@ describe('Flow API shell', () => {
       name: 'Flow',
       authMode: 'development',
       modelConfigured: false,
+      composioConfigured: false,
+      webcmdEnabled: false,
     });
+  });
+
+  it('exposes setup status without authentication', async () => {
+    const server = await testApp();
+    const response = await server.inject({
+      method: 'GET',
+      url: '/v1/setup/status',
+      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)' },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = response.json() as {
+      ok: boolean;
+      os: string;
+      webcmd: { available: boolean };
+      mcp: { server: string };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.os).toBe('macos');
+    expect(body.mcp.server).toBe('Composio');
+    expect(typeof body.webcmd.available).toBe('boolean');
   });
 
   it('rejects a cross-origin mutation before authentication or domain work', async () => {
@@ -59,5 +81,16 @@ describe('Flow API shell', () => {
     });
 
     expect(response.statusCode).toBe(403);
+  });
+
+  it('allows localhost and 127.0.0.1 as equivalent web origins', async () => {
+    const server = await testApp();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      headers: { origin: 'http://127.0.0.1:5173' },
+    });
+    // Development auth still requires store; origin check must pass first.
+    expect(response.statusCode).not.toBe(403);
   });
 });

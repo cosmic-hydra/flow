@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
-function loadRepositoryEnvironment(): void {
-  let directory = process.cwd();
+function findRepositoryRoot(startDirectory = process.cwd()): string | undefined {
+  let directory = startDirectory;
   for (let depth = 0; depth < 6; depth += 1) {
     const packagePath = join(directory, 'package.json');
     if (existsSync(packagePath)) {
@@ -12,19 +12,23 @@ function loadRepositoryEnvironment(): void {
         const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as {
           name?: unknown;
         };
-        if (packageJson.name === '@flow/root') {
-          const environmentPath = join(directory, '.env');
-          if (existsSync(environmentPath)) process.loadEnvFile(environmentPath);
-          return;
-        }
+        if (packageJson.name === '@flow/root') return directory;
       } catch {
-        return;
+        return undefined;
       }
     }
     const parent = dirname(directory);
-    if (parent === directory) return;
+    if (parent === directory) return undefined;
     directory = parent;
   }
+  return undefined;
+}
+
+function loadRepositoryEnvironment(): void {
+  const root = findRepositoryRoot();
+  if (root === undefined) return;
+  const environmentPath = join(root, '.env');
+  if (existsSync(environmentPath)) process.loadEnvFile(environmentPath);
 }
 
 const EmptyToUndefined = z
@@ -42,7 +46,7 @@ const EnvironmentSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     FLOW_HOST: z.string().default('127.0.0.1'),
     FLOW_PORT: z.coerce.number().int().min(1).max(65_535).default(4010),
-    FLOW_WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
+    FLOW_WEB_ORIGIN: z.string().url().default('http://127.0.0.1:5173'),
     FLOW_DATABASE_URL: z.string().url().default('postgres://flow:flow@localhost:5432/flow'),
     FLOW_AUTH_MODE: z.enum(['development', 'required']).default('development'),
     FLOW_SESSION_SECRET: EmptyToUndefined,
@@ -80,6 +84,7 @@ const EnvironmentSchema = z
     FLOW_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     FLOW_JOB_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(120),
     FLOW_MAX_COUPON_ATTEMPTS: z.coerce.number().int().min(0).max(25).default(8),
+    COMPOSIO_API_KEY: EmptyToUndefined,
   })
   .passthrough();
 
@@ -131,6 +136,9 @@ export interface FlowConfig {
   deals: {
     maxCouponAttempts: number;
   };
+  composio: {
+    apiKey?: string;
+  };
 }
 
 export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowConfig {
@@ -173,6 +181,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
   };
   if (parsed.OPENAI_API_KEY !== undefined) openai.apiKey = parsed.OPENAI_API_KEY;
 
+  const repositoryRoot = findRepositoryRoot();
+  const configuredWebcmdPath = parsed.FLOW_WEBCMD_PATH;
+  const resolvedWebcmdPath = isAbsolute(configuredWebcmdPath)
+    ? configuredWebcmdPath
+    : resolve(repositoryRoot ?? process.cwd(), configuredWebcmdPath);
+
   const bmsBot: FlowConfig['bmsBot'] = {
     timeoutMs: parsed.FLOW_BMS_BOT_TIMEOUT_MS,
     handoffTtlMs: parsed.FLOW_BMS_BOT_HANDOFF_TTL_MS,
@@ -189,6 +203,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
     uiPath.releaseKey = parsed.FLOW_UIPATH_RELEASE_KEY;
   }
 
+  const composio: FlowConfig['composio'] = {};
+  if (parsed.COMPOSIO_API_KEY !== undefined) composio.apiKey = parsed.COMPOSIO_API_KEY;
+
   return {
     environment: parsed.NODE_ENV,
     server: {
@@ -202,7 +219,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
     openai,
     webcmd: {
       enabled: parsed.FLOW_ENABLE_WEBCMD,
-      path: parsed.FLOW_WEBCMD_PATH,
+      path: resolvedWebcmdPath,
       profile: parsed.FLOW_WEBCMD_PROFILE,
       timeoutMs: parsed.FLOW_WEBCMD_TIMEOUT_MS,
     },
@@ -215,6 +232,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
       leaseSeconds: parsed.FLOW_JOB_LEASE_SECONDS,
     },
     deals: { maxCouponAttempts: parsed.FLOW_MAX_COUPON_ATTEMPTS },
+    composio,
   };
 }
 
@@ -234,5 +252,6 @@ export function redactedConfig(config: FlowConfig): Record<string, unknown> {
     uiPath: { configured: config.uiPath.baseUrl !== undefined },
     worker: config.worker,
     deals: config.deals,
+    composio: { configured: config.composio.apiKey !== undefined },
   };
 }

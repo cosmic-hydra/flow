@@ -71,7 +71,7 @@ git clone https://github.com/cosmic-hydra/flow.git
 cd flow
 cp .env.example .env
 npm install
-npm install -g @agentrhq/webcmd
+npm install -g @agentrhq/webcmd   # or use ./node_modules/.bin/webcmd
 ```
 
 Start PostgreSQL, then run:
@@ -82,9 +82,21 @@ npm run db:seed
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Development mode provisions a local user automatically. The API listens on `http://localhost:4010`.
+Open [http://localhost:5173](http://localhost:5173). Development mode provisions a local user automatically. The **setup wizard** opens on first visit with Windows / macOS / Linux install commands, webcmd health, and Composio account linking. The API listens on `http://localhost:4010`.
 
 `npm run dev` starts the API, worker, and web app together. Keep the worker running: it performs scheduled searches and approved execution.
+
+### First-run setup wizard
+
+The in-app dialog walks through:
+
+1. Platform picker (macOS, Windows, Linux) with copyable install commands
+2. Node + PostgreSQL runtime
+3. `webcmd` install, doctor, and District login
+4. Account linking via **Composio MCP** or in-app OAuth / demo link
+5. Enter Flow
+
+See the [demo gallery](demo/README.md) for screenshots and a walkthrough video (`npm run demo:capture`).
 
 ### Docker demo
 
@@ -135,6 +147,16 @@ FLOW_ENABLE_WEB_DEAL_RESEARCH=true
 
 Chat uses function tools that can create, search, inspect, list, and select bookings. There is intentionally no approval or purchase tool. Web deal research sends only the booking category, query, provider IDs, broad market, date, and currency—not contact details or payment data—and accepts only public codes with an HTTPS evidence URL.
 
+## Composio accounts
+
+Optional in-app OAuth for Gmail, Calendar, Slack, Notion, Outlook, and Stripe:
+
+```dotenv
+COMPOSIO_API_KEY=...
+```
+
+Without an API key, Flow still supports **demo linking** and documents **Composio MCP** setup for Cursor (`COMPOSIO_MANAGE_CONNECTIONS`). Linked accounts appear under the Accounts view and in the setup wizard.
+
 ## Approval and execution
 
 1. Search adapters return normalized offers.
@@ -181,12 +203,15 @@ npm run db:migrate             # apply checksum-verified migrations
 npm run db:seed                # create development user
 npm run token:create -- ...    # create a production API token
 npm run integration:bms:install
+npm run demo:capture           # screenshots + walkthrough video (app must be running)
 ```
 
 ## API surface
 
 - `GET /health/live`, `GET /health/ready`
-- `GET /v1/meta`, `GET /v1/providers`
+- `GET /v1/meta`, `GET /v1/providers`, `GET /v1/setup/status`
+- `GET|POST /v1/accounts` (Composio / demo account linking)
+- `GET /v1/webcmd`, `POST /v1/webcmd/run`
 - `POST /v1/auth/token`, `POST /v1/auth/logout`, `GET /v1/auth/me`
 - `GET|POST /v1/conversations`
 - `GET|POST /v1/conversations/:id/messages`
@@ -204,6 +229,7 @@ npm run integration:bms:install
 - [Security model](docs/security.md)
 - [Operations and deployment](docs/operations.md)
 - [Provider integrations](docs/providers)
+- [Demo gallery](demo/README.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Contributing](CONTRIBUTING.md)
 

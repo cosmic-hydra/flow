@@ -20,6 +20,8 @@
     "db:seed": "tsx packages/db/src/cli/seed.ts",
     "token:create": "tsx packages/db/src/cli/create-token.ts",
     "integration:bms:install": "bash scripts/bootstrap-bms-bot.sh",
+    "demo:capture": "node scripts/capture-demo.mjs",
+    "demo:viral": "node scripts/capture-viral-demo.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
@@ -34,10 +36,14 @@
     "concurrently": "10.0.4",
     "esbuild": "0.28.1",
     "eslint": "10.8.0",
+    "playwright": "^1.62.1",
     "prettier": "3.9.6",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.65.0",
     "vitest": "4.1.10"
+  },
+  "dependencies": {
+    "@agentrhq/webcmd": "^0.5.2"
   }
 }

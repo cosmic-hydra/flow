@@ -14,6 +14,7 @@ import type { BookingService } from '@flow/runtime';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { registerAuthentication } from './auth.js';
+import { allowedWebOrigins } from './origins.js';
 import { registerBookingRoutes } from './routes/bookings.js';
 import { registerConversationRoutes } from './routes/conversations.js';
 import { registerSystemRoutes } from './routes/system.js';
@@ -26,6 +27,7 @@ export async function createApp(input: {
   bookings: BookingService;
   chat: ChatService;
 }): Promise<FastifyInstance> {
+  const webOrigins = allowedWebOrigins(input.config.server.webOrigin);
   const app = Fastify({
     logger: {
       level: input.config.server.logLevel,
@@ -52,7 +54,9 @@ export async function createApp(input: {
       : { secret: input.config.auth.sessionSecret }),
   });
   await app.register(cors, {
-    origin: input.config.server.webOrigin,
+    origin: (origin, callback) => {
+      callback(null, origin === undefined || webOrigins.includes(origin));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
@@ -72,7 +76,7 @@ export async function createApp(input: {
   app.addHook('onRequest', async (request) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin !== undefined && origin !== input.config.server.webOrigin) {
+    if (origin !== undefined && !webOrigins.includes(origin)) {
       throw app.httpErrors.forbidden('Cross-origin mutation denied');
     }
   });

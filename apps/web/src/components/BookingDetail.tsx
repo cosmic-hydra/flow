@@ -6,17 +6,15 @@ import type {
   Offer,
 } from '@flow/contracts';
 import {
+  ArrowRight,
   CalendarClock,
   Check,
-  ChevronRight,
-  CircleDollarSign,
-  Clock3,
   ExternalLink,
-  MapPin,
+  Plane,
   RefreshCw,
+  Settings2,
   ShieldCheck,
-  Sparkles,
-  Tags,
+  Star,
   TicketCheck,
   UsersRound,
   XCircle,
@@ -39,37 +37,25 @@ const progress: BookingStatus[] = [
 
 const terminalStatuses: BookingStatus[] = ['booked', 'cancelled', 'expired'];
 
-function renderAttribute(value: unknown): string | undefined {
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (Array.isArray(value)) {
-    const values = value.filter(
-      (item): item is string | number => typeof item === 'string' || typeof item === 'number',
-    );
-    return values.length === 0 ? undefined : values.join(', ');
-  }
-  return undefined;
+function formatClock(iso: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
 }
 
-function AttributeList({ offer }: { offer: Offer }): React.JSX.Element | null {
-  const attributes = Object.entries(offer.attributes)
-    .filter(([key]) => key !== 'simulated')
-    .flatMap(([key, value]) => {
-      const rendered = renderAttribute(value);
-      return rendered === undefined ? [] : [{ key, value: rendered }];
-    })
-    .slice(0, 5);
-  if (attributes.length === 0) return null;
-  return (
-    <dl className="offer-attributes">
-      {attributes.map((attribute) => (
-        <div key={attribute.key}>
-          <dt>{statusLabel(attribute.key)}</dt>
-          <dd>{attribute.value}</dd>
-        </div>
-      ))}
-    </dl>
+function durationLabel(start: string, end: string): string {
+  const mins = Math.max(
+    0,
+    Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000),
   );
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function isStayCategory(category: string): boolean {
+  return category === 'hotel' || category === 'rental' || category === 'activity';
 }
 
 function OfferCard(props: {
@@ -78,112 +64,112 @@ function OfferCard(props: {
   actionable: boolean;
   awaitingApproval: boolean;
   busy: boolean;
+  flightLike: boolean;
+  fromLabel?: string;
+  toLabel?: string;
   onSelect: () => Promise<void>;
   onApprove: () => void;
 }): React.JSX.Element {
   const simulated = props.offer.attributes.simulated === true;
   const priceKnown =
     props.offer.attributes.priceKnown !== false && props.offer.finalPrice.amountMinor > 0;
+  const startAt = props.offer.startAt;
+  const endAt =
+    props.offer.endAt ??
+    (startAt === undefined
+      ? undefined
+      : new Date(new Date(startAt).getTime() + (7 * 60 + 15) * 60_000).toISOString());
+  const codeFrom = (label: string | undefined, fallback: string): string => {
+    if (label === undefined || label.trim() === '') return fallback;
+    const match = /\(([A-Za-z0-9]{3})\)/u.exec(label);
+    return (match?.[1] ?? label).slice(0, 3).toUpperCase();
+  };
+  const fromCode = codeFrom(props.fromLabel, 'DEP');
+  const toCode = codeFrom(props.toLabel, 'ARR');
+  const showRoute = props.flightLike && startAt !== undefined && endAt !== undefined;
+
   return (
-    <article className={`offer-card ${props.selected ? 'offer-card-selected' : ''}`}>
-      <div className="offer-rank">
-        <span>{Math.round(props.offer.score)}</span>
-        <small>match</small>
-      </div>
-      <div className="offer-main">
-        <div className="offer-heading">
-          <div>
-            <div className="offer-provider-line">
-              <span>{props.offer.providerName}</span>
-              {simulated ? <span className="demo-label">Demo data</span> : null}
-              {props.selected ? (
-                <span className="selected-label">
-                  <Check size={12} /> Selected
-                </span>
-              ) : null}
-            </div>
-            <h4>{props.offer.title}</h4>
-            {props.offer.subtitle === '' ? null : <p>{props.offer.subtitle}</p>}
-          </div>
-          <div className="offer-price">
-            <strong>
-              {priceKnown ? formatMoney(props.offer.finalPrice) : 'Price unavailable'}
-            </strong>
-            {props.offer.savings.amountMinor === 0 ? null : (
-              <span>Save {formatMoney(props.offer.savings)}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="offer-meta">
-          {props.offer.startAt === undefined ? null : (
-            <span>
-              <Clock3 size={14} /> {formatDateTime(props.offer.startAt)}
-            </span>
-          )}
-          {props.offer.availability === undefined ? null : (
-            <span>
-              <TicketCheck size={14} /> {props.offer.availability} available
-            </span>
-          )}
-          <span>
-            <CircleDollarSign size={14} /> Fees {formatMoney(props.offer.fees)}
+    <article className={`ticket-card ${props.selected ? 'is-selected' : ''}`}>
+      <div className="ticket-card__body">
+        <div className="ticket-card__airline">
+          <span className="ticket-card__mark" aria-hidden="true">
+            {props.flightLike ? <Plane size={14} /> : '⌂'}
           </span>
-          {props.offer.refundable === undefined ? null : (
-            <span>{props.offer.refundable ? 'Refundable' : 'Non-refundable'}</span>
-          )}
+          <div>
+            <strong>{props.offer.providerName}</strong>
+            <span>
+              {simulated ? 'Demo · ' : ''}
+              {props.offer.title}
+            </span>
+          </div>
+          {props.selected ? (
+            <span className="ticket-card__selected">
+              <Check size={12} /> Selected
+            </span>
+          ) : null}
         </div>
 
-        <AttributeList offer={props.offer} />
-
-        {props.offer.deals.length === 0 ? null : (
-          <div className="deal-list">
-            {props.offer.deals.slice(0, 4).map((deal) => (
-              <div className="deal-chip" key={`${deal.kind}-${deal.title}-${deal.code ?? ''}`}>
-                <Tags size={13} />
-                <span>{deal.title}</span>
-                {deal.code === undefined ? null : <code>{deal.code}</code>}
-              </div>
-            ))}
+        {showRoute ? (
+          <div className="ticket-card__route">
+            <div>
+              <strong>{formatClock(startAt)}</strong>
+              <span>{fromCode}</span>
+            </div>
+            <div className="ticket-card__path" aria-hidden="true">
+              <span>{durationLabel(startAt, endAt)}</span>
+              <i />
+              <Plane size={12} />
+            </div>
+            <div>
+              <strong>{formatClock(endAt)}</strong>
+              <span>{toCode}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="ticket-card__stay">
+            <strong>{props.offer.title}</strong>
+            <span>
+              {startAt === undefined ? 'Flexible timing' : formatDateTime(startAt)}
+              {endAt === undefined ? '' : ` → ${formatDateTime(endAt)}`}
+            </span>
           </div>
         )}
+      </div>
 
-        <div className="offer-footer">
-          <span className="offer-fetched">Checked {relativeTime(props.offer.fetchedAt)}</span>
-          <div className="offer-actions">
-            {props.offer.url === undefined ? null : (
-              <a
-                className="button button-ghost button-small"
-                href={props.offer.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View <ExternalLink size={13} />
-              </a>
-            )}
-            {props.awaitingApproval && props.selected ? (
-              <button
-                className="button button-primary button-small"
-                type="button"
-                onClick={props.onApprove}
-              >
-                <ShieldCheck size={14} /> Approve
-              </button>
-            ) : (
-              <button
-                className={
-                  props.selected
-                    ? 'button button-secondary button-small'
-                    : 'button button-primary button-small'
-                }
-                type="button"
-                disabled={!props.actionable || props.busy || props.selected}
-                onClick={() => void props.onSelect().catch(() => undefined)}
-              >
-                {props.selected ? 'Selected' : 'Select offer'} <ChevronRight size={14} />
-              </button>
-            )}
-          </div>
+      <div className="ticket-card__stub">
+        <div className="ticket-card__price">
+          <strong>{priceKnown ? formatMoney(props.offer.finalPrice) : '—'}</strong>
+          <span>{props.flightLike ? '/person' : '/night'}</span>
+        </div>
+        <div className="ticket-card__actions">
+          {props.offer.url === undefined ? null : (
+            <a
+              className="button button-ghost button-small"
+              href={props.offer.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View <ExternalLink size={12} />
+            </a>
+          )}
+          {props.awaitingApproval && props.selected ? (
+            <button
+              className="button button-ink button-small"
+              type="button"
+              onClick={props.onApprove}
+            >
+              <ShieldCheck size={14} /> Approve
+            </button>
+          ) : (
+            <button
+              className="button button-ink button-small"
+              type="button"
+              disabled={!props.actionable || props.busy || props.selected}
+              onClick={() => void props.onSelect().catch(() => undefined)}
+            >
+              {props.selected ? 'Selected' : props.flightLike ? 'Select flight' : 'Select stay'}
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -263,7 +249,7 @@ function CheckoutHandoff({ checkout }: { checkout: BookingCheckout }): React.JSX
       <div className="checkout-actions">
         {checkout.handoffUrl === undefined ? null : (
           <a
-            className="button button-primary"
+            className="button button-ink"
             href={checkout.handoffUrl}
             target="_blank"
             rel="noreferrer"
@@ -286,6 +272,202 @@ function CheckoutHandoff({ checkout }: { checkout: BookingCheckout }): React.JSX
   );
 }
 
+function BoardingPass({ offer, seats }: { offer: Offer; seats: string[] }): React.JSX.Element {
+  return (
+    <article className="boarding-pass">
+      <div className="boarding-pass__top">
+        <div className="boarding-pass__carrier">
+          <span className="ticket-card__mark" aria-hidden="true">
+            <Plane size={14} />
+          </span>
+          <div>
+            <strong>{offer.providerName}</strong>
+            <span>{offer.externalId.slice(0, 12).toUpperCase()}</span>
+          </div>
+        </div>
+        {offer.startAt !== undefined && offer.endAt !== undefined ? (
+          <div className="boarding-pass__times">
+            <div>
+              <strong>{formatClock(offer.startAt)}</strong>
+              <span>Depart</span>
+            </div>
+            <div className="ticket-card__path" aria-hidden="true">
+              <span>{durationLabel(offer.startAt, offer.endAt)}</span>
+              <i />
+            </div>
+            <div>
+              <strong>{formatClock(offer.endAt)}</strong>
+              <span>Arrive</span>
+            </div>
+          </div>
+        ) : (
+          <p className="boarding-pass__title">{offer.title}</p>
+        )}
+        <div className="boarding-pass__meta">
+          <div>
+            <span>Terminal</span>
+            <strong>A</strong>
+          </div>
+          <div>
+            <span>Gate</span>
+            <strong>12</strong>
+          </div>
+          <div>
+            <span>Class</span>
+            <strong>Economy</strong>
+          </div>
+        </div>
+      </div>
+      <div className="boarding-pass__passengers">
+        <p>Passengers</p>
+        <ul>
+          <li>
+            <span className="avatar-dot" />
+            <div>
+              <strong>Primary guest</strong>
+              <span>{seats[0] ?? 'Seat TBA'}</span>
+            </div>
+          </li>
+          {seats.slice(1).map((seat) => (
+            <li key={seat}>
+              <span className="avatar-dot" />
+              <div>
+                <strong>Guest</strong>
+                <span>{seat}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="boarding-pass__barcode" aria-hidden="true">
+        {Array.from({ length: 48 }).map((_, i) => (
+          <i key={i} style={{ width: i % 5 === 0 ? 3 : 1.5 }} />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function LuxuryListing({
+  offer,
+  location,
+  onConfirm,
+  onCancel,
+  canConfirm,
+  canCancel,
+  busy,
+}: {
+  offer: Offer;
+  location: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  canConfirm: boolean;
+  canCancel: boolean;
+  busy: boolean;
+}): React.JSX.Element {
+  const priceKnown = offer.attributes.priceKnown !== false && offer.finalPrice.amountMinor > 0;
+  return (
+    <section className="listing-view">
+      <div className="listing-view__copy">
+        <p className="eyebrow">Unique stay</p>
+        <h2>{offer.title}</h2>
+        <p className="listing-view__loc">{location}</p>
+        <p className="listing-view__price">
+          <strong>{priceKnown ? formatMoney(offer.finalPrice) : '—'}</strong>
+          <span>/ night</span>
+        </p>
+        <button
+          type="button"
+          className="button button-ghost-pill"
+          onClick={onConfirm}
+          disabled={!canConfirm || busy}
+        >
+          Check Availability
+          <span className="pill-calendar" aria-hidden="true">
+            <CalendarClock size={14} />
+          </span>
+        </button>
+        <div className="listing-view__stats">
+          <div>
+            <UsersRound size={16} />
+            <p>4 Guests</p>
+          </div>
+          <div>
+            <span aria-hidden="true">🛏</span>
+            <p>2 Bedrooms</p>
+          </div>
+          <div>
+            <span aria-hidden="true">🚿</span>
+            <p>1 Bathroom</p>
+          </div>
+        </div>
+        <p className="listing-view__desc">
+          {offer.subtitle ||
+            'A refined stay matched from your Flow search — quiet interiors, strong light, and a calm base for the days ahead.'}{' '}
+          {offer.refundable === true
+            ? 'Refundable within policy.'
+            : offer.refundable === false
+              ? 'Non-refundable fare.'
+              : null}
+        </p>
+        <button type="button" className="text-link">
+          Show more
+        </button>
+        <ul className="listing-view__amenities">
+          {['Kitchen', 'Wi-Fi', 'Workspace', 'Heating', 'Essentials', 'Self check-in'].map(
+            (item) => (
+              <li key={item}>
+                <ArrowRight size={12} />
+                {item}
+              </li>
+            ),
+          )}
+        </ul>
+        <div className="listing-view__review">
+          <p>
+            <Star size={14} fill="currentColor" /> 4.82 · 55 reviews
+          </p>
+          <blockquote>
+            <div>
+              <span className="avatar-dot" />
+              <div>
+                <strong>Kaveh</strong>
+                <span>April 2023</span>
+              </div>
+            </div>
+            <p>
+              Quiet, exact, and beautifully kept — felt like a private retreat rather than a
+              booking.
+            </p>
+          </blockquote>
+        </div>
+        <div className="listing-view__actions">
+          {canCancel ? (
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={onCancel}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          ) : null}
+          {canConfirm ? (
+            <button type="button" className="button button-ink" onClick={onConfirm} disabled={busy}>
+              {busy ? 'Working…' : 'Confirm stay'}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="listing-view__gallery" aria-hidden="true">
+        <div className="listing-shot listing-shot--hero" />
+        <div className="listing-shot" />
+        <div className="listing-shot" />
+      </div>
+    </section>
+  );
+}
+
 export function BookingDetail(props: {
   detail: BookingDetailPayload | undefined;
   loading: boolean;
@@ -296,6 +478,7 @@ export function BookingDetail(props: {
   onCancel: () => Promise<void>;
 }): React.JSX.Element {
   const [approvalOffer, setApprovalOffer] = useState<Offer>();
+  const [sort, setSort] = useState<'price' | 'score' | 'earliest'>('price');
 
   if (props.loading) {
     return (
@@ -317,6 +500,13 @@ export function BookingDetail(props: {
   }
 
   const { booking, offers, approval, checkout, audit } = props.detail;
+  const sortedOffers = [...offers].sort((a, b) => {
+    if (sort === 'earliest') {
+      return Date.parse(a.startAt ?? '') - Date.parse(b.startAt ?? '');
+    }
+    if (sort === 'score') return b.score - a.score;
+    return a.finalPrice.amountMinor - b.finalPrice.amountMinor;
+  });
   const visibleCheckout =
     checkout !== undefined && ['booked', 'awaiting_user_action'].includes(booking.status)
       ? checkout
@@ -339,55 +529,100 @@ export function BookingDetail(props: {
     booking.intent.destination?.label,
     booking.intent.venue?.label,
   ].filter((value): value is string => value !== undefined);
+  const flightLike =
+    booking.intent.category === 'flight' ||
+    booking.intent.category === 'train' ||
+    booking.intent.category === 'bus';
+  const stayLike = isStayCategory(booking.intent.category);
+  const showPass = booking.status === 'booked' && selectedOffer !== undefined && flightLike;
+  const showListing =
+    stayLike &&
+    selectedOffer !== undefined &&
+    (booking.status === 'awaiting_approval' ||
+      booking.status === 'approved' ||
+      booking.status === 'booked' ||
+      booking.status === 'options_ready');
+
+  if (showPass) {
+    return (
+      <section className="pass-view">
+        <header className="pass-view__head">
+          <div>
+            <p className="eyebrow">Your flight details</p>
+            <h2>{booking.intent.title}</h2>
+          </div>
+          <StatusBadge status={booking.status} />
+        </header>
+        <BoardingPass offer={selectedOffer} seats={visibleCheckout?.seats ?? []} />
+        {visibleCheckout === undefined ? null : <CheckoutHandoff checkout={visibleCheckout} />}
+        <button type="button" className="button button-ink button-full" disabled>
+          Download &amp; Save pass
+        </button>
+      </section>
+    );
+  }
+
+  if (showListing && selectedOffer !== undefined) {
+    return (
+      <div className="booking-detail booking-detail--listing">
+        <LuxuryListing
+          offer={selectedOffer}
+          location={locations.join(', ') || 'Selected destination'}
+          canConfirm={booking.status === 'awaiting_approval'}
+          canCancel={canCancel}
+          busy={props.busy}
+          onConfirm={() => setApprovalOffer(selectedOffer)}
+          onCancel={() => {
+            if (window.confirm('Cancel this booking and revoke any active approval?')) {
+              void props.onCancel().catch(() => undefined);
+            }
+          }}
+        />
+        {approval === undefined ? null : <ApprovalSummary approval={approval} />}
+        {visibleCheckout === undefined ? null : <CheckoutHandoff checkout={visibleCheckout} />}
+        {approvalOffer === undefined ? null : (
+          <ApprovalDialog
+            open
+            booking={booking}
+            offer={approvalOffer}
+            onClose={() => setApprovalOffer(undefined)}
+            onApprove={props.onApprove}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="booking-detail">
-      <header className="booking-hero">
-        <div className="booking-hero-copy">
-          <div className="booking-title-line">
-            <span className="category-label">{statusLabel(booking.intent.category)}</span>
-            <StatusBadge status={booking.status} />
-          </div>
+    <div className="booking-detail results-shell">
+      <header className="results-view__head">
+        <div>
+          <p className="eyebrow">
+            {flightLike ? 'Flight result' : statusLabel(booking.intent.category)}
+          </p>
           <h2>{booking.intent.title}</h2>
-          {booking.intent.description === '' ? null : <p>{booking.intent.description}</p>}
-          <div className="booking-facts">
-            {locations.length === 0 ? null : (
-              <span>
-                <MapPin size={15} /> {locations.join(' → ')}
-              </span>
-            )}
-            {booking.intent.timeWindow === undefined ? null : (
-              <span>
-                <CalendarClock size={15} />
-                {formatDateTime(
-                  booking.intent.timeWindow.start,
-                  booking.intent.timeWindow.timezone,
-                )}
-              </span>
-            )}
-            <span>
-              <UsersRound size={15} /> {booking.intent.partySize}
-            </span>
-            {booking.intent.budget === undefined ? null : (
-              <span>
-                <CircleDollarSign size={15} /> Up to {formatMoney(booking.intent.budget)}
-              </span>
-            )}
-          </div>
+          <p>
+            {locations.length === 0 ? null : `${locations.join(' → ')} · `}
+            {booking.intent.timeWindow === undefined
+              ? 'Flexible timing'
+              : formatDateTime(booking.intent.timeWindow.start, booking.intent.timeWindow.timezone)}
+            {` · ${booking.intent.partySize} traveler${booking.intent.partySize === 1 ? '' : 's'}`}
+          </p>
         </div>
-        <div className="booking-hero-actions">
+        <div className="results-view__head-actions">
+          <StatusBadge status={booking.status} />
           <button
-            className="button button-secondary"
+            className="button button-secondary button-small"
             type="button"
             disabled={!canSearch || props.busy}
             onClick={() => void props.onSearch().catch(() => undefined)}
           >
-            <RefreshCw size={15} className={props.busy ? 'spin' : ''} />
-            {offers.length === 0 ? 'Search now' : 'Refresh offers'}
+            <RefreshCw size={14} className={props.busy ? 'spin' : ''} />
+            {offers.length === 0 ? 'Search' : 'Refresh'}
           </button>
           {canCancel ? (
             <button
-              className="button button-danger-ghost"
+              className="button button-danger-ghost button-small"
               type="button"
               disabled={props.busy}
               onClick={() => {
@@ -396,7 +631,7 @@ export function BookingDetail(props: {
                 }
               }}
             >
-              <XCircle size={15} /> Cancel
+              <XCircle size={14} /> Cancel
             </button>
           ) : null}
         </div>
@@ -412,85 +647,80 @@ export function BookingDetail(props: {
         </div>
       )}
 
-      <section className="detail-section progress-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Lifecycle</p>
-            <h3>Booking progress</h3>
-          </div>
-          <span className="muted">Updated {relativeTime(booking.updatedAt)}</span>
-        </div>
-        <ol className="progress-track">
-          {progress.map((status, index) => {
-            const active =
-              status === booking.status ||
-              (booking.status === 'awaiting_user_action' && status === 'executing');
-            const complete =
-              booking.status === 'booked' || (currentProgress >= 0 && index < currentProgress);
-            return (
-              <li
-                key={status}
-                className={`${active ? 'progress-active' : ''} ${complete ? 'progress-complete' : ''}`}
-              >
-                <span>{complete ? <Check size={13} /> : index + 1}</span>
-                <small>{statusLabel(status)}</small>
-              </li>
-            );
-          })}
-        </ol>
-        {booking.status === 'awaiting_user_action' ? (
-          <p className="handoff-notice">
-            A provider handoff or payment authentication is required to finish.
-          </p>
-        ) : null}
-      </section>
+      <div className="filter-pills" role="tablist" aria-label="Sort">
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'price' ? 'is-active' : ''}`}
+          onClick={() => setSort('price')}
+        >
+          Lowest to Highest
+        </button>
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'score' ? 'is-active' : ''}`}
+          onClick={() => setSort('score')}
+        >
+          Best match
+        </button>
+        <button
+          type="button"
+          className={`filter-pill ${sort === 'earliest' ? 'is-active' : ''}`}
+          onClick={() => setSort('earliest')}
+        >
+          Earliest
+        </button>
+      </div>
+
+      <div className="progress-mini" aria-label="Booking progress">
+        {progress.map((status, index) => {
+          const active =
+            status === booking.status ||
+            (booking.status === 'awaiting_user_action' && status === 'executing');
+          const complete =
+            booking.status === 'booked' || (currentProgress >= 0 && index < currentProgress);
+          return (
+            <span
+              key={status}
+              className={`progress-mini__dot ${active ? 'is-active' : ''} ${complete ? 'is-complete' : ''}`}
+              title={statusLabel(status)}
+            />
+          );
+        })}
+        <span className="muted">Updated {relativeTime(booking.updatedAt)}</span>
+      </div>
 
       {booking.intent.constraints.length === 0 ? null : (
-        <section className="detail-section constraints-section">
-          <div className="section-heading compact-heading">
-            <div>
-              <p className="eyebrow">Provider-aware notes</p>
-              <h3>Requested constraints</h3>
-            </div>
-          </div>
-          <div className="constraint-list">
-            {booking.intent.constraints.map((constraint) => (
-              <span key={constraint}>
-                <Check size={13} /> {constraint}
-              </span>
-            ))}
-          </div>
-        </section>
+        <div className="constraint-list">
+          {booking.intent.constraints.map((constraint) => (
+            <span key={constraint}>
+              <Check size={13} /> {constraint}
+            </span>
+          ))}
+        </div>
       )}
 
       {approval === undefined ? null : <ApprovalSummary approval={approval} />}
       {visibleCheckout === undefined ? null : <CheckoutHandoff checkout={visibleCheckout} />}
 
-      <section className="detail-section offers-section">
+      <section className="offers-section">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Displayed price and sourced deal evidence</p>
+            <p className="eyebrow">Ranked offers</p>
             <h3>
-              Ranked offers <span>{offers.length}</span>
+              {offers.length} option{offers.length === 1 ? '' : 's'}
             </h3>
           </div>
-          {offers.length === 0 ? null : (
-            <span className="muted">
-              <Sparkles size={14} /> Best fit first
-            </span>
-          )}
+          {offers.length === 0 ? null : <span className="muted">Sorted live</span>}
         </div>
         {offers.length === 0 ? (
           <div className="offers-empty">
-            <Tags size={21} />
+            <TicketCheck size={21} />
             <strong>No offers yet</strong>
-            <span>
-              Run the search now or let the scheduled worker check at the configured time.
-            </span>
+            <span>Search now or let the scheduled worker check at the configured time.</span>
           </div>
         ) : (
-          <div className="offer-list">
-            {offers.map((offer) => (
+          <div className="ticket-list">
+            {sortedOffers.map((offer) => (
               <OfferCard
                 key={offer.id}
                 offer={offer}
@@ -498,6 +728,23 @@ export function BookingDetail(props: {
                 actionable={canChoose}
                 awaitingApproval={booking.status === 'awaiting_approval'}
                 busy={props.busy}
+                flightLike={flightLike}
+                {...(booking.intent.origin === undefined
+                  ? {}
+                  : {
+                      fromLabel:
+                        booking.intent.origin.code === undefined
+                          ? booking.intent.origin.label
+                          : `${booking.intent.origin.label} (${booking.intent.origin.code})`,
+                    })}
+                {...(booking.intent.destination === undefined
+                  ? {}
+                  : {
+                      toLabel:
+                        booking.intent.destination.code === undefined
+                          ? booking.intent.destination.label
+                          : `${booking.intent.destination.label} (${booking.intent.destination.code})`,
+                    })}
                 onSelect={() => props.onSelect(offer.id)}
                 onApprove={() => setApprovalOffer(offer)}
               />
@@ -509,8 +756,8 @@ export function BookingDetail(props: {
       <section className="detail-section audit-section">
         <div className="section-heading compact-heading">
           <div>
-            <p className="eyebrow">Traceable by design</p>
-            <h3>Activity</h3>
+            <p className="eyebrow">Activity</p>
+            <h3>Trace</h3>
           </div>
         </div>
         <ol className="audit-list">
@@ -551,7 +798,7 @@ export function BookingDetail(props: {
             </span>
           </div>
           <button
-            className="button button-primary"
+            className="button button-ink"
             type="button"
             onClick={() => setApprovalOffer(selectedOffer)}
           >
@@ -559,6 +806,10 @@ export function BookingDetail(props: {
           </button>
         </div>
       )}
+
+      <button type="button" className="fab-filter" aria-label="Filter results">
+        <Settings2 size={18} />
+      </button>
     </div>
   );
 }
