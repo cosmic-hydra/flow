@@ -1,0 +1,76 @@
+name: flow
+
+services:
+  postgres:
+    image: postgres:17.8-alpine
+    environment:
+      POSTGRES_DB: flow
+      POSTGRES_USER: flow
+      POSTGRES_PASSWORD: flow
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U flow -d flow']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - flow_postgres:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      NODE_ENV: development
+      FLOW_HOST: 0.0.0.0
+      FLOW_PORT: 4010
+      FLOW_WEB_ORIGIN: http://localhost:8080
+      FLOW_DATABASE_URL: postgres://flow:flow@postgres:5432/flow
+      FLOW_AUTH_MODE: development
+      FLOW_ENABLE_WEBCMD: 'false'
+      FLOW_ENABLE_WEB_DEAL_RESEARCH: ${FLOW_ENABLE_WEB_DEAL_RESEARCH:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      FLOW_OPENAI_MODEL: ${FLOW_OPENAI_MODEL:-gpt-5.6-sol}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4010/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      NODE_ENV: development
+      FLOW_DATABASE_URL: postgres://flow:flow@postgres:5432/flow
+      FLOW_AUTH_MODE: development
+      FLOW_ENABLE_WEBCMD: 'false'
+      FLOW_ENABLE_WEB_DEAL_RESEARCH: ${FLOW_ENABLE_WEB_DEAL_RESEARCH:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      FLOW_OPENAI_MODEL: ${FLOW_OPENAI_MODEL:-gpt-5.6-sol}
+      FLOW_WORKER_ID: docker-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - '8080:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  flow_postgres:

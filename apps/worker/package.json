@@ -1,0 +1,20 @@
+{
+  "name": "@flow/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/build-app.mjs worker",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@flow/ai": "*",
+    "@flow/config": "*",
+    "@flow/db": "*",
+    "@flow/providers": "*",
+    "@flow/runtime": "*",
+    "pino": "10.3.1"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@flow/root",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Approval-safe AI booking automation with deterministic deal optimization.",
+  "type": "module",
+  "packageManager": "npm@11.17.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build:packages && npm run build --workspace @flow/api && npm run build --workspace @flow/worker && npm run build --workspace @flow/web",
+    "build:packages": "npm run build --workspace @flow/contracts && npm run build --workspace @flow/config && npm run build --workspace @flow/core && npm run build --workspace @flow/db && npm run build --workspace @flow/providers && npm run build --workspace @flow/ai && npm run build --workspace @flow/runtime",
+    "dev": "concurrently --kill-others-on-fail --names api,worker,web --prefix-colors blue,magenta,green \"npm run dev --workspace @flow/api\" \"npm run dev --workspace @flow/worker\" \"npm run dev --workspace @flow/web\"",
+    "db:migrate": "tsx packages/db/src/cli/migrate.ts",
+    "db:seed": "tsx packages/db/src/cli/seed.ts",
+    "token:create": "tsx packages/db/src/cli/create-token.ts",
+    "integration:bms:install": "bash scripts/bootstrap-bms-bot.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run build:packages && npm run typecheck --workspace @flow/api && npm run typecheck --workspace @flow/worker && npm run typecheck --workspace @flow/web && tsc --noEmit -p integrations/bms-bot/tsconfig.json",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.2",
+    "concurrently": "10.0.4",
+    "esbuild": "0.28.1",
+    "eslint": "10.8.0",
+    "prettier": "3.9.6",
+    "tsx": "4.23.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "4.1.10"
+  }
+}

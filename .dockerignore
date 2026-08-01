@@ -1,0 +1,13 @@
+.git
+.flow
+node_modules
+**/node_modules
+**/dist
+coverage
+.env
+.env.*
+!.env.example
+*.log
+screenshots
+playwright-report
+test-results
