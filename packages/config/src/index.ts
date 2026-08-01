@@ -46,7 +46,7 @@ const EnvironmentSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     FLOW_HOST: z.string().default('127.0.0.1'),
     FLOW_PORT: z.coerce.number().int().min(1).max(65_535).default(4010),
-    FLOW_WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
+    FLOW_WEB_ORIGIN: z.string().url().default('http://127.0.0.1:5173'),
     FLOW_DATABASE_URL: z.string().url().default('postgres://flow:flow@localhost:5432/flow'),
     FLOW_AUTH_MODE: z.enum(['development', 'required']).default('development'),
     FLOW_SESSION_SECRET: EmptyToUndefined,

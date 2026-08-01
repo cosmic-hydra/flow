@@ -472,6 +472,7 @@ export function BookingDetail(props: {
             <p className="eyebrow">Displayed price and sourced deal evidence</p>
             <h3>
               Ranked offers <span>{offers.length}</span>
+              <span className="gold-dot" aria-hidden="true" />
             </h3>
           </div>
           {offers.length === 0 ? null : (

@@ -7,6 +7,8 @@ export function TopBar(props: {
   onAction?: () => void;
   onMenu: () => void;
   onSetup?: () => void;
+  onServices?: () => void;
+  onAccounts?: () => void;
   glass?: boolean;
 }): React.JSX.Element {
   return (
@@ -23,15 +25,19 @@ export function TopBar(props: {
       <button
         type="button"
         className="brand-mark brand-mark-nav"
-        aria-label="Flow"
+        aria-label="Open navigation"
         onClick={props.onMenu}
       >
         F
       </button>
 
       <nav className="glass-nav" aria-label="Quick links">
-        <span className="glass-pill">{props.eyebrow}</span>
-        <span className="glass-pill topbar-title-pill">{props.title}</span>
+        <button type="button" className="glass-pill" onClick={props.onServices ?? props.onMenu}>
+          Services <span aria-hidden="true">+</span>
+        </button>
+        <button type="button" className="glass-pill" onClick={props.onAccounts ?? props.onSetup}>
+          Accounts <span aria-hidden="true">+</span>
+        </button>
       </nav>
 
       <div className="topbar-spacer" />

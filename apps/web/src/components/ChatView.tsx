@@ -61,14 +61,15 @@ export function ChatView(props: {
 }): React.JSX.Element {
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const showHero = props.messages.length === 0;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [props.messages, props.sending]);
 
-  const submit = (): void => {
-    const content = draft.trim();
+  const submit = (value = draft): void => {
+    const content = value.trim();
     if (content === '' || props.sending) return;
     setDraft('');
     void props.onSend(content);
@@ -84,21 +85,16 @@ export function ChatView(props: {
               <div className="hero-veil" />
             </div>
             <div className="hero-content">
-              <button type="button" className="hero-back muted" tabIndex={-1} aria-hidden="true">
-                ← Back
-              </button>
-              <button type="button" className="hero-share glass-icon" aria-label="Share Flow">
-                <Share2 size={16} />
-              </button>
               <div className="hero-brand-block">
                 <p className="hero-kicker">Flow</p>
                 <h1 className="hero-title">Book anything</h1>
+                <p className="hero-support">Best verified price. Your approval before checkout.</p>
                 <button
                   type="button"
-                  className="button button-pill-light"
+                  className="button button-pill-light hero-order"
                   onClick={() => {
-                    const first = prompts[0];
-                    if (first !== undefined) setDraft(first.text);
+                    composerRef.current?.focus();
+                    submit(prompts[1].text);
                   }}
                 >
                   Order
@@ -108,39 +104,42 @@ export function ChatView(props: {
                 <span>Other services</span>
                 <button
                   type="button"
-                  className="glass-pill"
+                  className="glass-pill hero-more"
                   onClick={props.onOpenSetup}
-                  aria-label="Open setup"
+                  aria-label="Open setup and other services"
                 >
                   ···
                 </button>
               </div>
             </div>
-            <div className="hero-prompts">
-              {prompts.map((prompt) => {
-                const Icon = prompt.icon;
-                return (
-                  <button
-                    key={prompt.title}
-                    type="button"
-                    className="hero-prompt"
-                    onClick={() => setDraft(prompt.text)}
-                  >
-                    <Icon size={16} />
-                    <span>
-                      <strong>{prompt.title}</strong>
-                      <small>{prompt.text}</small>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {!props.modelConfigured ? (
-              <div className="hero-notice">
-                <Bot size={16} />
-                Natural-language planner offline — structured booking still works.
+            <div className="hero-below">
+              <div className="hero-prompts" aria-label="Suggested requests">
+                {prompts.map((prompt) => {
+                  const Icon = prompt.icon;
+                  return (
+                    <button
+                      key={prompt.title}
+                      type="button"
+                      className="hero-prompt"
+                      disabled={props.sending}
+                      onClick={() => submit(prompt.text)}
+                    >
+                      <Icon size={16} />
+                      <span>
+                        <strong>{prompt.title}</strong>
+                        <small>{prompt.text}</small>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            ) : null}
+              {!props.modelConfigured ? (
+                <div className="hero-notice">
+                  <Bot size={16} />
+                  Planner uses the local fallback until OPENAI_API_KEY is set — bookings still run.
+                </div>
+              ) : null}
+            </div>
           </section>
         ) : (
           <div className="message-list">
@@ -185,6 +184,7 @@ export function ChatView(props: {
       <div className={`composer-shell ${showHero ? 'composer-shell-hero' : ''}`}>
         <div className="composer">
           <textarea
+            ref={composerRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -200,7 +200,7 @@ export function ChatView(props: {
           <button
             className="send-button"
             type="button"
-            onClick={submit}
+            onClick={() => submit()}
             disabled={draft.trim() === '' || props.sending}
             aria-label="Send message"
           >
@@ -218,6 +218,11 @@ export function ChatView(props: {
           </div>
         ) : null}
       </div>
+      {showHero ? (
+        <button type="button" className="hero-share glass-icon" aria-label="Share Flow">
+          <Share2 size={16} />
+        </button>
+      ) : null}
     </div>
   );
 }

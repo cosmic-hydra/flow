@@ -82,4 +82,15 @@ describe('Flow API shell', () => {
 
     expect(response.statusCode).toBe(403);
   });
+
+  it('allows localhost and 127.0.0.1 as equivalent web origins', async () => {
+    const server = await testApp();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      headers: { origin: 'http://127.0.0.1:5173' },
+    });
+    // Development auth still requires store; origin check must pass first.
+    expect(response.statusCode).not.toBe(403);
+  });
 });

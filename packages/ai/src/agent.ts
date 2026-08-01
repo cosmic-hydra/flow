@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import OpenAI from 'openai';
 import type { FlowConfig } from '@flow/config';
-import type { Message } from '@flow/contracts';
+import type { CreateBookingInput, Message } from '@flow/contracts';
 import { bookingAgentInstructions } from './prompt.js';
 import {
   bookingAgentTools,
@@ -64,6 +64,91 @@ function collectBookingIds(value: unknown, output: Set<string>): void {
   }
 }
 
+function detectCategory(text: string): CreateBookingInput['intent']['category'] {
+  const value = text.toLowerCase();
+  if (/\b(flight|flights|airfare|airport|iata)\b/u.test(value)) return 'flight';
+  if (/\b(train|rail|jr pass)\b/u.test(value)) return 'train';
+  if (/\b(hotel|stay|lodging|airbnb)\b/u.test(value)) return 'hotel';
+  if (/\b(movie|cinema|showtimes?|seats?)\b/u.test(value)) return 'movie';
+  if (/\b(restaurant|dinner|lunch|reservation|table)\b/u.test(value)) return 'restaurant';
+  if (/\b(event|tickets?|concert|show)\b/u.test(value)) return 'event';
+  if (/\b(rental|car hire)\b/u.test(value)) return 'rental';
+  if (/\b(appointment|doctor|clinic)\b/u.test(value)) return 'appointment';
+  return 'generic';
+}
+
+function detectBudget(text: string): { amountMinor: number; currency: string } | undefined {
+  const usd = text.match(/\$\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/u);
+  if (usd?.[1] !== undefined) {
+    return { amountMinor: Math.round(Number(usd[1].replace(/,/gu, '')) * 100), currency: 'USD' };
+  }
+  const inr = text.match(/₹\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)/u);
+  if (inr?.[1] !== undefined) {
+    return { amountMinor: Math.round(Number(inr[1].replace(/,/gu, '')) * 100), currency: 'INR' };
+  }
+  return undefined;
+}
+
+function buildLocalBookingInput(
+  request: string,
+  context: ChatToolContext,
+): CreateBookingInput | undefined {
+  const trimmed = request.trim();
+  if (trimmed.length < 8) return undefined;
+  if (
+    !/\b(book|find|search|compare|reserve|schedule|flight|movie|hotel|restaurant|train)\b/iu.test(
+      trimmed,
+    )
+  ) {
+    return undefined;
+  }
+
+  const category = detectCategory(trimmed);
+  const now = Date.parse(context.currentTime);
+  const start = new Date(now + 14 * 24 * 60 * 60_000);
+  start.setUTCHours(8, 0, 0, 0);
+  const end = new Date(start.getTime() + 12 * 60 * 60_000);
+  const researchAt = new Date(context.currentTime).toISOString();
+  const deadline = new Date(start.getTime() - 60 * 60_000).toISOString();
+  const budget = detectBudget(trimmed);
+  const title =
+    trimmed.length > 80 ? `${trimmed.slice(0, 77).trim()}…` : trimmed.replace(/\s+/gu, ' ');
+
+  const intent: CreateBookingInput['intent'] = {
+    category,
+    title,
+    description: trimmed,
+    partySize: /\bfor\s+(\d+)\b/iu.test(trimmed)
+      ? Number(/\bfor\s+(\d+)\b/iu.exec(trimmed)?.[1] ?? 1)
+      : 1,
+    preferredProviders: ['demo'],
+    excludedProviders: [],
+    constraints: [],
+    metadata: { source: 'local_planner' },
+    timeWindow: {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      timezone: context.timezone || 'UTC',
+    },
+  };
+  if (budget !== undefined) intent.budget = budget;
+  if (category === 'flight') {
+    intent.origin = { label: 'Bengaluru', code: 'BLR', city: 'Bengaluru' };
+    intent.destination = { label: 'Singapore', code: 'SIN', city: 'Singapore' };
+  }
+
+  return {
+    intent,
+    automation: {
+      researchAt,
+      deadline,
+      refreshIntervalMinutes: 60,
+      maxCouponAttempts: 8,
+      autoExecuteWithinApproval: false,
+    },
+  };
+}
+
 export class BookingChatAgent {
   readonly #client?: OpenAI;
   readonly #config: FlowConfig['openai'];
@@ -78,7 +163,7 @@ export class BookingChatAgent {
   }
 
   async respond(context: ChatToolContext, history: readonly Message[]): Promise<AgentResponse> {
-    if (this.#client === undefined) return this.#localResponse(history);
+    if (this.#client === undefined) return this.#localResponse(context, history);
 
     const input: OpenAI.Responses.ResponseInput = history
       .filter((message) => message.role === 'user' || message.role === 'assistant')
@@ -154,16 +239,68 @@ export class BookingChatAgent {
     };
   }
 
-  #localResponse(history: readonly Message[]): AgentResponse {
+  async #localResponse(
+    context: ChatToolContext,
+    history: readonly Message[],
+  ): Promise<AgentResponse> {
     const lastUserMessage = [...history].reverse().find((message) => message.role === 'user');
     const request = lastUserMessage?.content ?? '';
+    if (request.trim() === '') {
+      return {
+        content:
+          'Tell me what you want to book, when, where, your budget, and any seat or timing constraints.',
+        bookingIds: [],
+        toolCalls: [],
+      };
+    }
+
+    const plan = buildLocalBookingInput(request, context);
+    if (plan === undefined) {
+      return {
+        content:
+          'I can create a structured booking from chat even without OPENAI_API_KEY. Try something like “Find flights from Bengaluru to Singapore under $650” or use Structured booking.',
+        bookingIds: [],
+        toolCalls: [],
+      };
+    }
+
+    const trace: AgentToolTrace[] = [];
+    const bookingIds = new Set<string>();
+    try {
+      const created = await this.#executor.execute('create_booking', plan, context);
+      collectBookingIds(created, bookingIds);
+      trace.push({ name: 'create_booking', status: 'succeeded' });
+      const bookingId = [...bookingIds][0];
+      if (bookingId !== undefined) {
+        const searched = await this.#executor.execute('search_booking', { bookingId }, context);
+        collectBookingIds(searched, bookingIds);
+        trace.push({ name: 'search_booking', status: 'succeeded' });
+        const offers =
+          searched !== null &&
+          typeof searched === 'object' &&
+          'offers' in searched &&
+          Array.isArray((searched as { offers?: unknown }).offers)
+            ? (searched as { offers: unknown[] }).offers.length
+            : 0;
+        return {
+          content: `Created a ${plan.intent.category} booking and ranked ${offers} offer${offers === 1 ? '' : 's'} with the demo provider. Open Bookings to compare totals and approve checkout — the chat planner is using the local fallback until OPENAI_API_KEY is set.`,
+          bookingIds: [...bookingIds],
+          toolCalls: trace,
+        };
+      }
+    } catch (error) {
+      trace.push({ name: 'create_booking', status: 'failed' });
+      return {
+        content: `I tried to create a booking from your request, but it failed: ${error instanceof Error ? error.message : 'unknown error'}. Use Structured booking for full control.`,
+        bookingIds: [...bookingIds],
+        toolCalls: trace,
+      };
+    }
+
     return {
-      content:
-        request.length === 0
-          ? 'Tell me what you want to book, when, where, your budget, and any seat or timing constraints.'
-          : 'I saved your message, but natural-language booking is offline because OPENAI_API_KEY is not configured. You can still create, schedule, search, approve, and execute bookings through the structured interface; add the key to enable the chat planner.',
-      bookingIds: [],
-      toolCalls: [],
+      content: 'I created a booking request. Open Bookings to continue search and approval.',
+      bookingIds: [...bookingIds],
+      toolCalls: trace,
     };
   }
 }

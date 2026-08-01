@@ -1,6 +1,6 @@
 /**
  * Capture Flow demo screenshots + short video walkthrough.
- * Requires the app running at FLOW_URL (default http://localhost:5173).
+ * Requires the app running at FLOW_URL (default http://127.0.0.1:5173).
  */
 import { chromium } from 'playwright';
 import { spawnSync } from 'node:child_process';
@@ -18,6 +18,32 @@ const artifactsDir = '/opt/cursor/artifacts';
 fs.mkdirSync(shotDir, { recursive: true });
 fs.mkdirSync(artifactsDir, { recursive: true });
 
+async function dismissSetup(page) {
+  for (let i = 0; i < 10; i += 1) {
+    const enter = page.getByRole('button', { name: /Enter Flow/i });
+    if (await enter.isVisible().catch(() => false)) {
+      await enter.click();
+      await page.waitForTimeout(500);
+      return;
+    }
+    const cont = page.getByRole('button', { name: 'Continue' });
+    if (await cont.isVisible().catch(() => false)) {
+      await cont.click();
+      await page.waitForTimeout(350);
+      continue;
+    }
+    break;
+  }
+}
+
+async function openSidebar(page) {
+  const menu = page.getByRole('button', { name: 'Open navigation' });
+  if (await menu.isVisible().catch(() => false)) {
+    await menu.click();
+    await page.waitForTimeout(350);
+  }
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -34,81 +60,59 @@ async function main() {
     localStorage.removeItem('flow_setup_complete');
     localStorage.removeItem('flow_setup_os');
   });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1_000);
 
-  // Development auth auto-provisions; wait for shell or login.
-  await page.waitForTimeout(1_200);
-
-  // Open setup from gear or auto-open
   const setupDialog = page.getByRole('dialog', { name: /Get booking-ready/i });
   if (!(await setupDialog.isVisible().catch(() => false))) {
-    const setupButton = page.getByRole('button', { name: /Open setup|Setup/i }).first();
-    if (await setupButton.isVisible().catch(() => false)) {
-      await setupButton.click();
-    }
+    await openSidebar(page);
+    const setupButton = page.getByRole('button', { name: /^Setup$/i }).first();
+    if (await setupButton.isVisible().catch(() => false)) await setupButton.click();
   }
   await setupDialog.waitFor({ timeout: 20_000 });
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(shotDir, '02-setup-wizard.png'), fullPage: false });
 
   await page.getByRole('button', { name: 'Continue' }).click();
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(400);
   await page.getByRole('button', { name: 'Windows' }).click();
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(shotDir, '02b-setup-os.png'), fullPage: false });
   await page.getByRole('button', { name: 'macOS' }).click();
   await page.waitForTimeout(200);
 
   for (let i = 0; i < 3; i += 1) {
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(400);
   }
   await page.screenshot({ path: path.join(shotDir, '02c-setup-accounts.png'), fullPage: false });
 
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await page.waitForTimeout(400);
-  await page.getByRole('button', { name: /Enter Flow/i }).click();
-  await page.waitForTimeout(800);
+  await dismissSetup(page);
+  await page.waitForTimeout(1_200);
 
+  // Setup completion creates a fresh conversation → immersive hero
+  await page.getByRole('heading', { name: /Book anything/i }).waitFor({ timeout: 12_000 });
   await page.screenshot({ path: path.join(shotDir, '01-hero.png'), fullPage: false });
 
-  // Flexible flight prompt fills composer; send if possible
-  const flightPrompt = page.getByRole('button', { name: /Flexible flight/i });
-  if (await flightPrompt.isVisible().catch(() => false)) {
-    await flightPrompt.click();
-    await page.waitForTimeout(300);
-    await page.getByLabel('Send message').click();
-    await page.waitForTimeout(2_500);
-  }
+  await page.getByRole('button', { name: /^Order$/i }).click();
+  await page.waitForTimeout(3_500);
   await page.screenshot({ path: path.join(shotDir, '03-chat.png'), fullPage: false });
 
-  // Accounts view
+  await openSidebar(page);
   await page
-    .getByRole('button', { name: 'Open navigation' })
-    .click()
-    .catch(() => undefined);
-  await page.waitForTimeout(300);
-  const accountsNav = page.getByRole('button', { name: /^Accounts$/i });
-  if (await accountsNav.isVisible().catch(() => false)) {
-    await accountsNav.click();
-    await page.waitForTimeout(900);
-    await page.screenshot({
-      path: path.join(shotDir, '04-accounts-webcmd.png'),
-      fullPage: false,
-    });
-  }
+    .locator('.sidebar')
+    .getByRole('button', { name: /^Accounts$/i })
+    .click({ force: true });
+  await page.waitForTimeout(1_100);
+  await page.screenshot({ path: path.join(shotDir, '04-accounts-webcmd.png'), fullPage: false });
 
-  // Bookings
+  await openSidebar(page);
   await page
-    .getByRole('button', { name: 'Open navigation' })
-    .click()
-    .catch(() => undefined);
-  await page.waitForTimeout(200);
-  const bookingsNav = page.getByRole('button', { name: /^Bookings$/i }).first();
-  if (await bookingsNav.isVisible().catch(() => false)) {
-    await bookingsNav.click();
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shotDir, '05-bookings.png'), fullPage: false });
-  }
+    .locator('.sidebar')
+    .getByRole('button', { name: /^Bookings$/i })
+    .click({ force: true });
+  await page.waitForTimeout(1_100);
+  await page.screenshot({ path: path.join(shotDir, '05-bookings.png'), fullPage: false });
 
   const video = page.video();
   await context.close();
@@ -119,14 +123,9 @@ async function main() {
     const mp4Out = path.join(outDir, 'flow-demo.mp4');
     const webmOut = path.join(outDir, 'flow-demo.webm');
     fs.copyFileSync(videoPath, webmOut);
-    const ffmpeg = spawnSync(
-      'ffmpeg',
-      ['-y', '-i', webmOut, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', mp4Out],
-      { encoding: 'utf8' },
-    );
-    if (ffmpeg.status !== 0) {
-      console.warn('ffmpeg convert skipped/failed; webm retained');
-    }
+    spawnSync('ffmpeg', ['-y', '-i', webmOut, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', mp4Out], {
+      encoding: 'utf8',
+    });
     for (const file of fs.readdirSync(shotDir)) {
       fs.copyFileSync(path.join(shotDir, file), path.join(artifactsDir, file));
     }

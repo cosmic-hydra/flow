@@ -356,6 +356,14 @@ export function App(): React.JSX.Element {
           glass={heroMode}
           onMenu={() => setSidebarOpen(true)}
           onSetup={() => setSetupOpen(true)}
+          onServices={() => {
+            setView('bookings');
+            setSidebarOpen(false);
+          }}
+          onAccounts={() => {
+            setView('accounts');
+            setSidebarOpen(false);
+          }}
           {...(topbar.action === undefined
             ? {}
             : { actionLabel: topbar.action, onAction: () => setCreateOpen(true) })}
@@ -405,9 +413,10 @@ export function App(): React.JSX.Element {
       <SetupDialog
         open={setupOpen}
         onClose={() => setSetupOpen(false)}
-        onComplete={() =>
-          setToast({ tone: 'success', message: 'Setup complete. You’re ready to book.' })
-        }
+        onComplete={() => {
+          setToast({ tone: 'success', message: 'Setup complete. You’re ready to book.' });
+          void createConversation();
+        }}
       />
 
       {toast === undefined ? null : (

@@ -2638,8 +2638,46 @@ code {
 }
 
 .app-shell-hero .sidebar {
-  background: rgb(20 19 17 / 72%);
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(310px, calc(100% - 42px));
+  transform: translateX(-102%);
+  background: rgb(20 19 17 / 88%);
   backdrop-filter: blur(18px);
+  transition: transform 180ms ease;
+  box-shadow: 18px 0 45px rgb(8 16 12 / 22%);
+}
+
+.app-shell-hero .sidebar-open {
+  transform: translateX(0);
+}
+
+.app-shell-hero .sidebar-close,
+.app-shell-hero .mobile-menu {
+  display: inline-flex;
+}
+
+.app-shell-hero .sidebar-scrim {
+  position: fixed;
+  z-index: 25;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  background: rgb(8 15 11 / 0%);
+  transition: background 180ms ease;
+}
+
+.app-shell-hero .sidebar-scrim-visible {
+  pointer-events: auto;
+  background: rgb(8 15 11 / 42%);
+}
+
+.app-shell-hero .brand-mark-nav {
+  display: inline-flex;
+}
+
+.app-shell-hero .glass-nav {
+  display: flex;
 }
 
 .topbar {
@@ -2730,22 +2768,33 @@ code {
 
 .chat-view-hero {
   background: transparent;
+  position: relative;
+}
+
+.chat-view-hero .chat-scroll {
+  overflow-y: auto;
 }
 
 .hero-stage {
   position: relative;
-  display: flex;
+  display: block;
   width: 100%;
   min-height: 100%;
-  flex-direction: column;
   color: #fff;
-  overflow: hidden;
+  overflow: visible;
   animation: hero-fade 700ms ease both;
 }
 
 .hero-media {
   position: absolute;
   inset: 0;
+  min-height: 100%;
+  height: auto;
+  bottom: auto;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(100%, 100dvh);
 }
 
 .hero-image {
@@ -2773,66 +2822,60 @@ code {
   position: relative;
   z-index: 1;
   display: flex;
-  min-height: min(72vh, 720px);
-  flex: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 88px 24px 40px;
+  padding: 96px 24px 140px;
   text-align: center;
-}
-
-.hero-back {
-  position: absolute;
-  top: 88px;
-  left: 28px;
-  color: rgb(255 255 255 / 78%);
-  background: none;
-  cursor: default;
-  font-size: 0.78rem;
-}
-
-.hero-share {
-  position: absolute;
-  top: 80px;
-  right: 28px;
 }
 
 .hero-brand-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
   animation: hero-rise 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .hero-kicker {
   font-family: var(--font-display);
-  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  font-size: clamp(1.15rem, 2.2vw, 1.55rem);
   font-weight: 520;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .hero-title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(3.4rem, 10vw, 6.4rem);
+  font-size: clamp(3.6rem, 11vw, 7rem);
   font-weight: 720;
   letter-spacing: -0.055em;
-  line-height: 0.92;
+  line-height: 0.9;
   text-shadow: 0 18px 50px rgb(0 0 0 / 28%);
 }
 
-.hero-brand-block .button-pill-light {
-  min-width: 118px;
-  min-height: 44px;
-  margin-top: 6px;
+.hero-support {
+  max-width: 28rem;
+  margin: 0;
+  color: rgb(255 255 255 / 78%);
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+  line-height: 1.45;
+}
+
+.hero-order {
+  min-width: 128px;
+  min-height: 46px;
+  margin-top: 8px;
   animation: hero-rise 900ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .hero-footer {
   position: absolute;
-  bottom: 28px;
+  bottom: 108px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2841,14 +2884,31 @@ code {
   font-size: 0.72rem;
 }
 
+.hero-more {
+  width: 42px;
+  min-height: 28px;
+  padding: 0;
+}
+
+.hero-below {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px 28px;
+  background: linear-gradient(180deg, transparent, rgb(18 16 14 / 55%) 30%, rgb(18 16 14 / 72%));
+}
+
 .hero-prompts {
   position: relative;
   z-index: 2;
   display: grid;
-  width: min(980px, calc(100% - 32px));
+  width: min(980px, 100%);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin: 0 auto 18px;
+  margin: 0;
   animation: hero-rise 900ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -2893,7 +2953,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 auto 16px;
+  margin: 0;
   padding: 8px 12px;
   border-radius: 999px;
   color: #fff;
@@ -2901,12 +2961,22 @@ code {
   font-size: 0.68rem;
 }
 
+.chat-view-hero .hero-share {
+  position: absolute;
+  top: 88px;
+  right: 28px;
+  z-index: 5;
+}
+
 .composer-shell-hero {
-  position: relative;
-  z-index: 3;
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: transparent;
   border-top: 0;
-  padding-bottom: 18px;
+  padding: 0 22px 22px;
 }
 
 .composer-shell-hero .composer {
