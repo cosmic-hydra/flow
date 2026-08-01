@@ -5,8 +5,8 @@ import {
   CalendarDays,
   Clock3,
   Plane,
+  Share2,
   ShieldCheck,
-  Sparkles,
   Ticket,
   UserRound,
 } from 'lucide-react';
@@ -57,9 +57,11 @@ export function ChatView(props: {
   sending: boolean;
   modelConfigured: boolean;
   onSend: (content: string) => Promise<void>;
+  onOpenSetup?: () => void;
 }): React.JSX.Element {
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const showHero = props.messages.length === 0;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -73,45 +75,70 @@ export function ChatView(props: {
   };
 
   return (
-    <div className="chat-view">
+    <div className={`chat-view ${showHero ? 'chat-view-hero' : ''}`}>
       <div className="chat-scroll">
-        {props.messages.length === 0 ? (
-          <section className="chat-empty">
-            <div className="chat-empty-mark">
-              <Sparkles size={20} />
+        {showHero ? (
+          <section className="hero-stage" aria-label="Flow hero">
+            <div className="hero-media" aria-hidden="true">
+              <img src="/assets/iceland-flow-hero.webp" alt="" className="hero-image" />
+              <div className="hero-veil" />
             </div>
-            <p className="eyebrow">One request, every constraint</p>
-            <h2>What should I find and reserve?</h2>
-            <p className="chat-empty-copy">
-              Give me the date, location, budget, timing, seats, or flexibility that matters. I’ll
-              compare total prices and stop for your approval before checkout.
-            </p>
-            <div className="prompt-grid">
+            <div className="hero-content">
+              <button type="button" className="hero-back muted" tabIndex={-1} aria-hidden="true">
+                ← Back
+              </button>
+              <button type="button" className="hero-share glass-icon" aria-label="Share Flow">
+                <Share2 size={16} />
+              </button>
+              <div className="hero-brand-block">
+                <p className="hero-kicker">Flow</p>
+                <h1 className="hero-title">Book anything</h1>
+                <button
+                  type="button"
+                  className="button button-pill-light"
+                  onClick={() => {
+                    const first = prompts[0];
+                    if (first !== undefined) setDraft(first.text);
+                  }}
+                >
+                  Order
+                </button>
+              </div>
+              <div className="hero-footer">
+                <span>Other services</span>
+                <button
+                  type="button"
+                  className="glass-pill"
+                  onClick={props.onOpenSetup}
+                  aria-label="Open setup"
+                >
+                  ···
+                </button>
+              </div>
+            </div>
+            <div className="hero-prompts">
               {prompts.map((prompt) => {
                 const Icon = prompt.icon;
                 return (
                   <button
                     key={prompt.title}
                     type="button"
-                    className="prompt-card"
+                    className="hero-prompt"
                     onClick={() => setDraft(prompt.text)}
                   >
-                    <span className="prompt-icon">
-                      <Icon size={17} />
+                    <Icon size={16} />
+                    <span>
+                      <strong>{prompt.title}</strong>
+                      <small>{prompt.text}</small>
                     </span>
-                    <strong>{prompt.title}</strong>
-                    <span>{prompt.text}</span>
                   </button>
                 );
               })}
             </div>
             {!props.modelConfigured ? (
-              <div className="inline-notice">
-                <Bot size={17} />
-                <span>
-                  The natural-language planner is offline. Structured booking and every provider
-                  workflow remain available.
-                </span>
+              <div className="hero-notice">
+                <Bot size={16} />
+                Natural-language planner offline — structured booking still works.
               </div>
             ) : null}
           </section>
@@ -155,7 +182,7 @@ export function ChatView(props: {
         <div ref={bottomRef} />
       </div>
 
-      <div className="composer-shell">
+      <div className={`composer-shell ${showHero ? 'composer-shell-hero' : ''}`}>
         <div className="composer">
           <textarea
             value={draft}
@@ -180,14 +207,16 @@ export function ChatView(props: {
             <ArrowUp size={18} />
           </button>
         </div>
-        <div className="composer-meta">
-          <span>
-            <ShieldCheck size={14} /> Checkout requires your explicit approval
-          </span>
-          <span>
-            <Clock3 size={14} /> Scheduled searches run in the background
-          </span>
-        </div>
+        {!showHero ? (
+          <div className="composer-meta">
+            <span>
+              <ShieldCheck size={14} /> Checkout requires your explicit approval
+            </span>
+            <span>
+              <Clock3 size={14} /> Scheduled searches run in the background
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

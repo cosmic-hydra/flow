@@ -61,7 +61,9 @@ Trip.com commands are discovery-only in the current webcmd surface. Flights requ
 
 - Run API/worker on the host that owns the authenticated browser profile.
 - Keep browser-provider concurrency conservative.
-- Site sessions can expire; check the Providers screen and re-authenticate interactively.
+- Site sessions can expire; check the Providers / Accounts screens and re-authenticate interactively.
+- The setup wizard (`/v1/setup/status`) reports webcmd version, doctor health, and adapter counts.
+- Authenticated clients can call `GET /v1/webcmd` and `POST /v1/webcmd/run` for doctor/list probes.
 - Provider pages can change without notice. Treat parsing failures as adapter health incidents.
 - Browser traces are retained only for write-command failures by default.
 - Do not place login credentials, cookies, or payment data in booking metadata.

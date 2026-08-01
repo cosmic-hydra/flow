@@ -2,11 +2,13 @@ import type { Booking, Conversation, CreateBookingInput, Message, User } from '@
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError, type BookingDetail, type ProviderSummary } from './api.js';
+import { AccountsView } from './components/AccountsView.js';
 import { BookingsView } from './components/BookingsView.js';
 import { ChatView } from './components/ChatView.js';
 import { CreateBookingDialog } from './components/CreateBookingDialog.js';
 import { LoginView } from './components/LoginView.js';
 import { ProvidersView } from './components/ProvidersView.js';
+import { SetupDialog } from './components/SetupDialog.js';
 import { Sidebar, type AppView } from './components/Sidebar.js';
 import { TopBar } from './components/TopBar.js';
 
@@ -15,6 +17,8 @@ interface AppMeta {
   version: string;
   authMode: string;
   modelConfigured: boolean;
+  composioConfigured?: boolean;
+  webcmdEnabled?: boolean;
 }
 
 interface Toast {
@@ -35,6 +39,7 @@ export function App(): React.JSX.Element {
   const [view, setView] = useState<AppView>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string>();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -128,6 +133,9 @@ export function App(): React.JSX.Element {
           if (cancelled) return;
           setUser(meResponse.user);
           await hydrateWorkspace();
+          if (localStorage.getItem('flow_setup_complete') !== '1') {
+            setSetupOpen(true);
+          }
         } catch (error) {
           if (error instanceof ApiError && error.status === 401) return;
           throw error;
@@ -247,10 +255,11 @@ export function App(): React.JSX.Element {
 
   const topbar = useMemo(() => {
     if (view === 'bookings')
-      return { eyebrow: 'Concierge workspace', title: 'Bookings', action: 'New booking' };
+      return { eyebrow: 'Services', title: 'Bookings', action: 'New booking' };
     if (view === 'providers') return { eyebrow: 'System', title: 'Providers' };
+    if (view === 'accounts') return { eyebrow: 'Setup', title: 'Accounts' };
     const conversation = conversations.find((item) => item.id === selectedConversationId);
-    return { eyebrow: 'AI concierge', title: conversation?.title ?? 'New booking' };
+    return { eyebrow: 'Services', title: conversation?.title ?? 'Concierge' };
   }, [conversations, selectedConversationId, view]);
 
   if (booting) {
@@ -285,24 +294,37 @@ export function App(): React.JSX.Element {
 
   if (user === undefined) {
     return (
-      <LoginView
-        onLogin={async (token) => {
-          setLoginError(undefined);
-          try {
-            const response = await api.login(token);
-            setUser(response.user);
-            await hydrateWorkspace();
-          } catch (error) {
-            setLoginError(errorMessage(error));
-          }
-        }}
-        {...(loginError === undefined ? {} : { error: loginError })}
-      />
+      <>
+        <LoginView
+          onLogin={async (token) => {
+            setLoginError(undefined);
+            try {
+              const response = await api.login(token);
+              setUser(response.user);
+              await hydrateWorkspace();
+              if (localStorage.getItem('flow_setup_complete') !== '1') {
+                setSetupOpen(true);
+              }
+            } catch (error) {
+              setLoginError(errorMessage(error));
+            }
+          }}
+          onOpenSetup={() => setSetupOpen(true)}
+          {...(loginError === undefined ? {} : { error: loginError })}
+        />
+        <SetupDialog
+          open={setupOpen}
+          onClose={() => setSetupOpen(false)}
+          onComplete={() => undefined}
+        />
+      </>
     );
   }
 
+  const heroMode = view === 'chat' && messages.length === 0;
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${heroMode ? 'app-shell-hero' : ''}`}>
       <Sidebar
         user={user}
         conversations={conversations}
@@ -319,6 +341,7 @@ export function App(): React.JSX.Element {
           if (nextView === 'providers') void refreshProviders();
         }}
         onCreateBooking={() => setCreateOpen(true)}
+        onOpenSetup={() => setSetupOpen(true)}
         onLogout={() => {
           void api.logout().finally(() => window.location.reload());
         }}
@@ -330,7 +353,9 @@ export function App(): React.JSX.Element {
         <TopBar
           eyebrow={topbar.eyebrow}
           title={topbar.title}
+          glass={heroMode}
           onMenu={() => setSidebarOpen(true)}
+          onSetup={() => setSetupOpen(true)}
           {...(topbar.action === undefined
             ? {}
             : { actionLabel: topbar.action, onAction: () => setCreateOpen(true) })}
@@ -342,6 +367,7 @@ export function App(): React.JSX.Element {
               sending={sending}
               modelConfigured={meta?.modelConfigured ?? false}
               onSend={sendMessage}
+              onOpenSetup={() => setSetupOpen(true)}
             />
           ) : null}
           {view === 'bookings' ? (
@@ -366,6 +392,7 @@ export function App(): React.JSX.Element {
               onRefresh={refreshProviders}
             />
           ) : null}
+          {view === 'accounts' ? <AccountsView onOpenSetup={() => setSetupOpen(true)} /> : null}
         </div>
       </div>
 
@@ -373,6 +400,14 @@ export function App(): React.JSX.Element {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreate={createBooking}
+      />
+
+      <SetupDialog
+        open={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        onComplete={() =>
+          setToast({ tone: 'success', message: 'Setup complete. You’re ready to book.' })
+        }
       />
 
       {toast === undefined ? null : (

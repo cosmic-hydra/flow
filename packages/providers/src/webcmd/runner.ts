@@ -101,6 +101,41 @@ async function runProcess(
   });
 }
 
+export interface WebcmdProcessResult {
+  ok: boolean;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export function isWebcmdDoctorHealthy(result: WebcmdProcessResult): boolean {
+  if (result.ok) return true;
+  const text = `${result.stdout}\n${result.stderr}`;
+  return /Everything looks good/iu.test(text) || /\[OK\].*Daemon/iu.test(text);
+}
+
+export function parseWebcmdJsonSafe<T>(raw: string): T | undefined {
+  if (raw.trim() === '') return undefined;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    const objectStart = raw.indexOf('{');
+    const arrayStart = raw.indexOf('[');
+    const start =
+      objectStart === -1
+        ? arrayStart
+        : arrayStart === -1
+          ? objectStart
+          : Math.min(objectStart, arrayStart);
+    if (start === -1) return undefined;
+    try {
+      return JSON.parse(raw.slice(start)) as T;
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 export class WebcmdRunner {
   readonly #config: FlowConfig['webcmd'];
 
@@ -108,10 +143,111 @@ export class WebcmdRunner {
     this.#config = config;
   }
 
+  get path(): string {
+    return this.#config.path;
+  }
+
+  get enabled(): boolean {
+    return this.#config.enabled;
+  }
+
+  get profile(): string {
+    return this.#config.profile;
+  }
+
   async version(): Promise<string> {
-    const result = await runProcess(this.#config.path, ['--version'], 10_000);
-    if (result.exitCode !== 0) throw new Error(result.stderr || 'webcmd version check failed');
+    const result = await this.runRaw(['--version'], 10_000);
+    if (!result.ok) throw new Error(result.stderr || 'webcmd version check failed');
     return result.stdout.trim();
+  }
+
+  async doctor(): Promise<WebcmdProcessResult> {
+    return this.runRaw(['doctor'], 20_000);
+  }
+
+  async list(): Promise<WebcmdProcessResult> {
+    return this.runRaw(['list', '-f', 'json'], 30_000);
+  }
+
+  async runSafeArgs(
+    args: readonly string[],
+    timeoutMs = this.#config.timeoutMs,
+  ): Promise<WebcmdProcessResult> {
+    const banned = /[;&|`$<>]/u;
+    if (args.some((arg) => banned.test(arg))) {
+      return {
+        ok: false,
+        exitCode: 2,
+        stdout: '',
+        stderr: 'Unsafe characters in webcmd arguments',
+      };
+    }
+    return this.runRaw(args, timeoutMs);
+  }
+
+  async probe(): Promise<{
+    available: boolean;
+    version?: string;
+    doctorOk: boolean;
+    doctorSummary?: string;
+    adapters?: unknown;
+    adapterCount?: number;
+    message: string;
+  }> {
+    if (!this.#config.enabled) {
+      return {
+        available: false,
+        doctorOk: false,
+        message: 'webcmd is disabled via FLOW_ENABLE_WEBCMD',
+      };
+    }
+
+    const versionResult = await this.runRaw(['--version'], 10_000);
+    const available = versionResult.ok || versionResult.stdout.trim() !== '';
+    if (!available) {
+      return {
+        available: false,
+        doctorOk: false,
+        message: versionResult.stderr || 'webcmd binary was not found on PATH',
+      };
+    }
+
+    const [doctor, list] = await Promise.all([this.doctor(), this.list()]);
+    const parsedList = parseWebcmdJsonSafe(list.stdout);
+    const adapterCount = Array.isArray(parsedList) ? parsedList.length : undefined;
+    const version = versionResult.stdout.trim();
+    const doctorSummary =
+      doctor.stdout.slice(0, 2_000) || doctor.stderr.slice(0, 2_000) || undefined;
+    return {
+      available: true,
+      ...(version === '' ? {} : { version }),
+      doctorOk: isWebcmdDoctorHealthy(doctor),
+      ...(doctorSummary === undefined ? {} : { doctorSummary }),
+      ...(parsedList === undefined ? {} : { adapters: parsedList }),
+      ...(adapterCount === undefined ? {} : { adapterCount }),
+      message: isWebcmdDoctorHealthy(doctor)
+        ? 'webcmd is ready'
+        : doctor.stderr.slice(0, 400) || 'webcmd is installed but doctor reported issues',
+    };
+  }
+
+  async runRaw(args: readonly string[], timeoutMs: number): Promise<WebcmdProcessResult> {
+    try {
+      const result = await runProcess(this.#config.path, args, timeoutMs);
+      return {
+        ok: result.exitCode === 0,
+        exitCode: result.exitCode,
+        stdout: result.stdout.trim(),
+        stderr: result.stderr.trim(),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: error instanceof Error ? error.message : 'webcmd process failed',
+      };
+    }
   }
 
   async runJson(invocation: WebcmdInvocation): Promise<unknown> {

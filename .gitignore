@@ -10,7 +10,8 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .flow/
-screenshots/
+/screenshots/
+demo/video-tmp/
 playwright-report/
 test-results/
 

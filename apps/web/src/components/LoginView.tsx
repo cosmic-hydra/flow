@@ -1,8 +1,9 @@
-import { ArrowRight, LockKeyhole } from 'lucide-react';
+import { ArrowRight, LockKeyhole, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 
 export function LoginView(props: {
   onLogin: (token: string) => Promise<void>;
+  onOpenSetup?: () => void;
   error?: string;
 }): React.JSX.Element {
   const [token, setToken] = useState('');
@@ -10,6 +11,10 @@ export function LoginView(props: {
 
   return (
     <main className="login-page">
+      <div className="login-hero" aria-hidden="true">
+        <img src="/assets/iceland-flow-hero.webp" alt="" />
+        <div className="login-hero-veil" />
+      </div>
       <section className="login-card">
         <div className="brand-mark brand-mark-large" aria-hidden="true">
           F
@@ -47,6 +52,12 @@ export function LoginView(props: {
             <ArrowRight size={17} aria-hidden="true" />
           </button>
         </form>
+        {props.onOpenSetup === undefined ? null : (
+          <button type="button" className="login-setup-link" onClick={props.onOpenSetup}>
+            <Settings2 size={15} />
+            Open setup wizard (Windows / macOS)
+          </button>
+        )}
       </section>
     </main>
   );

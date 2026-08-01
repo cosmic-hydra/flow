@@ -1,18 +1,19 @@
 import type { Booking, Conversation, User } from '@flow/contracts';
 import {
   CalendarClock,
-  ChevronLeft,
   CircleUserRound,
   HeartHandshake,
+  Link2,
   LogOut,
   MessageSquareText,
   Plus,
   ServerCog,
+  Settings2,
   X,
 } from 'lucide-react';
 import { relativeTime, statusLabel } from '../format.js';
 
-export type AppView = 'chat' | 'bookings' | 'providers';
+export type AppView = 'chat' | 'bookings' | 'providers' | 'accounts';
 
 export function Sidebar(props: {
   user: User;
@@ -28,6 +29,7 @@ export function Sidebar(props: {
   onSelectBooking: (id: string) => void;
   onChangeView: (view: AppView) => void;
   onCreateBooking: () => void;
+  onOpenSetup: () => void;
   onLogout: () => void;
 }): React.JSX.Element {
   return (
@@ -99,12 +101,24 @@ export function Sidebar(props: {
             )}
           </button>
           <button
+            className={props.view === 'accounts' ? 'nav-item nav-item-active' : 'nav-item'}
+            type="button"
+            onClick={() => props.onChangeView('accounts')}
+          >
+            <Link2 size={17} />
+            Accounts
+          </button>
+          <button
             className={props.view === 'providers' ? 'nav-item nav-item-active' : 'nav-item'}
             type="button"
             onClick={() => props.onChangeView('providers')}
           >
             <ServerCog size={17} />
             Providers
+          </button>
+          <button className="nav-item" type="button" onClick={props.onOpenSetup}>
+            <Settings2 size={17} />
+            Setup
           </button>
         </nav>
 
@@ -184,9 +198,6 @@ export function Sidebar(props: {
             <LogOut size={17} />
           </button>
         </footer>
-        <span className="sidebar-collapse-hint" aria-hidden="true">
-          <ChevronLeft size={14} />
-        </span>
       </aside>
     </>
   );

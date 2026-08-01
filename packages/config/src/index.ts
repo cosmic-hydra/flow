@@ -80,6 +80,7 @@ const EnvironmentSchema = z
     FLOW_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     FLOW_JOB_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(120),
     FLOW_MAX_COUPON_ATTEMPTS: z.coerce.number().int().min(0).max(25).default(8),
+    COMPOSIO_API_KEY: EmptyToUndefined,
   })
   .passthrough();
 
@@ -130,6 +131,9 @@ export interface FlowConfig {
   };
   deals: {
     maxCouponAttempts: number;
+  };
+  composio: {
+    apiKey?: string;
   };
 }
 
@@ -189,6 +193,9 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
     uiPath.releaseKey = parsed.FLOW_UIPATH_RELEASE_KEY;
   }
 
+  const composio: FlowConfig['composio'] = {};
+  if (parsed.COMPOSIO_API_KEY !== undefined) composio.apiKey = parsed.COMPOSIO_API_KEY;
+
   return {
     environment: parsed.NODE_ENV,
     server: {
@@ -215,6 +222,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
       leaseSeconds: parsed.FLOW_JOB_LEASE_SECONDS,
     },
     deals: { maxCouponAttempts: parsed.FLOW_MAX_COUPON_ATTEMPTS },
+    composio,
   };
 }
 
@@ -234,5 +242,6 @@ export function redactedConfig(config: FlowConfig): Record<string, unknown> {
     uiPath: { configured: config.uiPath.baseUrl !== undefined },
     worker: config.worker,
     deals: config.deals,
+    composio: { configured: config.composio.apiKey !== undefined },
   };
 }

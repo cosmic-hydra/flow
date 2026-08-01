@@ -71,11 +71,70 @@ export interface ProviderSummary {
   health: { available: boolean; message: string };
 }
 
+export interface SetupStatus {
+  ok: boolean;
+  os: 'macos' | 'windows' | 'linux' | 'unknown';
+  commands: Record<string, string>;
+  runtime: { node: string; platform: string; ready: boolean };
+  webcmd: {
+    enabled: boolean;
+    path: string;
+    profile: string;
+    available: boolean;
+    version: string | null;
+    doctorOk: boolean;
+    message: string;
+    adapterCount: number | null;
+  };
+  accounts: {
+    mode: string;
+    count: number;
+    items: ConnectedAccount[];
+  };
+  composioConfigured: boolean;
+  mcp: {
+    server: string;
+    tools: string[];
+    hint: string;
+    snippet: string;
+  };
+}
+
+export interface ConnectedAccount {
+  id: string;
+  toolkit: string;
+  label: string;
+  status: string;
+  redirectUrl?: string;
+}
+
+export interface ToolkitDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface WebcmdStatus {
+  ok: boolean;
+  available: boolean;
+  version?: string;
+  doctorOk: boolean;
+  doctorSummary?: string;
+  adapters?: unknown;
+  adapterCount?: number;
+  message: string;
+}
+
 export const api = {
   meta: () =>
-    request<{ name: string; version: string; authMode: string; modelConfigured: boolean }>(
-      '/v1/meta',
-    ),
+    request<{
+      name: string;
+      version: string;
+      authMode: string;
+      modelConfigured: boolean;
+      composioConfigured: boolean;
+      webcmdEnabled: boolean;
+    }>('/v1/meta'),
   me: () => request<{ user: User }>('/v1/auth/me'),
   login: (token: string) =>
     request<{ user: User; expiresAt: string }>('/v1/auth/token', {
@@ -119,4 +178,33 @@ export const api = {
   cancelBooking: (bookingId: string) =>
     request<{ booking: Booking }>(`/v1/bookings/${bookingId}/cancel`, { method: 'POST' }),
   providers: () => request<{ providers: ProviderSummary[] }>('/v1/providers'),
+  setupStatus: () => request<SetupStatus>('/v1/setup/status'),
+  accounts: () =>
+    request<{
+      ok: boolean;
+      toolkits: ToolkitDefinition[];
+      accounts: ConnectedAccount[];
+      mode: string;
+    }>('/v1/accounts'),
+  connectAccount: (toolkit: string, action: 'connect' | 'demo-link' = 'connect') =>
+    request<{
+      ok: boolean;
+      mode: string;
+      account: ConnectedAccount;
+      message: string;
+    }>('/v1/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ toolkit, action }),
+    }),
+  webcmdStatus: (action?: string) =>
+    request<WebcmdStatus>(`/v1/webcmd${action === undefined ? '' : `?action=${action}`}`),
+  webcmdRun: (args: string[]) =>
+    request<{
+      ok: boolean;
+      result: { ok: boolean; exitCode: number; stdout: string; stderr: string };
+      parsed: unknown;
+    }>('/v1/webcmd/run', {
+      method: 'POST',
+      body: JSON.stringify({ args }),
+    }),
 };
