@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
-function loadRepositoryEnvironment(): void {
-  let directory = process.cwd();
+function findRepositoryRoot(startDirectory = process.cwd()): string | undefined {
+  let directory = startDirectory;
   for (let depth = 0; depth < 6; depth += 1) {
     const packagePath = join(directory, 'package.json');
     if (existsSync(packagePath)) {
@@ -12,19 +12,23 @@ function loadRepositoryEnvironment(): void {
         const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as {
           name?: unknown;
         };
-        if (packageJson.name === '@flow/root') {
-          const environmentPath = join(directory, '.env');
-          if (existsSync(environmentPath)) process.loadEnvFile(environmentPath);
-          return;
-        }
+        if (packageJson.name === '@flow/root') return directory;
       } catch {
-        return;
+        return undefined;
       }
     }
     const parent = dirname(directory);
-    if (parent === directory) return;
+    if (parent === directory) return undefined;
     directory = parent;
   }
+  return undefined;
+}
+
+function loadRepositoryEnvironment(): void {
+  const root = findRepositoryRoot();
+  if (root === undefined) return;
+  const environmentPath = join(root, '.env');
+  if (existsSync(environmentPath)) process.loadEnvFile(environmentPath);
 }
 
 const EmptyToUndefined = z
@@ -177,6 +181,12 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
   };
   if (parsed.OPENAI_API_KEY !== undefined) openai.apiKey = parsed.OPENAI_API_KEY;
 
+  const repositoryRoot = findRepositoryRoot();
+  const configuredWebcmdPath = parsed.FLOW_WEBCMD_PATH;
+  const resolvedWebcmdPath = isAbsolute(configuredWebcmdPath)
+    ? configuredWebcmdPath
+    : resolve(repositoryRoot ?? process.cwd(), configuredWebcmdPath);
+
   const bmsBot: FlowConfig['bmsBot'] = {
     timeoutMs: parsed.FLOW_BMS_BOT_TIMEOUT_MS,
     handoffTtlMs: parsed.FLOW_BMS_BOT_HANDOFF_TTL_MS,
@@ -209,7 +219,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): FlowCo
     openai,
     webcmd: {
       enabled: parsed.FLOW_ENABLE_WEBCMD,
-      path: parsed.FLOW_WEBCMD_PATH,
+      path: resolvedWebcmdPath,
       profile: parsed.FLOW_WEBCMD_PROFILE,
       timeoutMs: parsed.FLOW_WEBCMD_TIMEOUT_MS,
     },

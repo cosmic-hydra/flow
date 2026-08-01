@@ -301,8 +301,14 @@ code {
 }
 
 .sidebar .button-primary {
-  background: #28795e;
-  border-color: #28795e;
+  background: #e7d3b0;
+  border-color: #e7d3b0;
+  color: #1a1917;
+}
+
+.sidebar .button-primary:hover:not(:disabled) {
+  background: #f0dfc0;
+  border-color: #f0dfc0;
 }
 
 .sidebar .button-secondary {

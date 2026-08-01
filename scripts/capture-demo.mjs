@@ -8,9 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.dirname(fileURLToPath(new URL('.', import.meta.url)));
-const base = process.env.FLOW_URL || 'http://localhost:5173';
-const outDir = path.join(root, '..', 'demo');
+const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(scriptsDir, '..');
+const base = process.env.FLOW_URL || 'http://127.0.0.1:5173';
+const outDir = path.join(root, 'demo');
 const shotDir = path.join(outDir, 'screenshots');
 const artifactsDir = '/opt/cursor/artifacts';
 
