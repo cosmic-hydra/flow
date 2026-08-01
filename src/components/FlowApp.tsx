@@ -13,6 +13,7 @@ import { SetupDialog } from "@/components/SetupDialog";
 import { DealCard } from "@/components/DealCard";
 import { AccountsPanel } from "@/components/AccountsPanel";
 import { WebcmdPanel } from "@/components/WebcmdPanel";
+import { RichText } from "@/components/RichText";
 import type { ChatMessage, Deal } from "@/lib/types";
 
 const SUGGESTIONS = [
@@ -215,7 +216,11 @@ export function FlowApp() {
                           : "border border-white/10 bg-white/[0.04] text-sand-100/90"
                       }`}
                     >
-                      {m.content}
+                      {m.role === "assistant" ? (
+                        <RichText text={m.content} />
+                      ) : (
+                        m.content
+                      )}
                     </div>
                     {m.deals && m.deals.length > 0 ? (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
