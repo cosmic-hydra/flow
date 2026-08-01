@@ -1,4 +1,4 @@
-import { Mail, Menu, Plus, Settings2 } from 'lucide-react';
+import { Menu, Plus, Settings2, UserRound } from 'lucide-react';
 
 export function TopBar(props: {
   eyebrow: string;
@@ -12,9 +12,9 @@ export function TopBar(props: {
   glass?: boolean;
 }): React.JSX.Element {
   return (
-    <header className={`topbar ${props.glass === true ? 'topbar-glass' : ''}`}>
+    <header className={`topbar ${props.glass === true ? 'topbar-plan' : ''}`}>
       <button
-        className="icon-button mobile-menu glass-icon"
+        className="icon-button mobile-menu"
         type="button"
         onClick={props.onMenu}
         aria-label="Open navigation"
@@ -22,21 +22,27 @@ export function TopBar(props: {
         <Menu size={18} />
       </button>
 
-      <button
-        type="button"
-        className="brand-mark brand-mark-nav"
-        aria-label="Open navigation"
-        onClick={props.onMenu}
-      >
-        F
+      <button type="button" className="brand-lockup" onClick={props.onMenu} aria-label="Flow home">
+        <span className="brand-mark" aria-hidden="true">
+          F
+        </span>
+        {!props.glass ? (
+          <span className="brand-lockup-copy">
+            <strong>Flow</strong>
+            <small>{props.title}</small>
+          </span>
+        ) : null}
       </button>
 
-      <nav className="glass-nav" aria-label="Quick links">
-        <button type="button" className="glass-pill" onClick={props.onServices ?? props.onMenu}>
-          Services <span aria-hidden="true">+</span>
+      <nav className="top-nav" aria-label="Categories">
+        <button type="button" onClick={props.onServices}>
+          Flights
         </button>
-        <button type="button" className="glass-pill" onClick={props.onAccounts ?? props.onSetup}>
-          Accounts <span aria-hidden="true">+</span>
+        <button type="button" onClick={props.onServices}>
+          Stays
+        </button>
+        <button type="button" onClick={props.onAccounts}>
+          Accounts
         </button>
       </nav>
 
@@ -45,7 +51,7 @@ export function TopBar(props: {
       <div className="topbar-actions">
         {props.actionLabel === undefined || props.onAction === undefined ? null : (
           <button
-            className="button button-pill-light topbar-action"
+            className="button button-ink topbar-action"
             type="button"
             onClick={props.onAction}
           >
@@ -55,7 +61,7 @@ export function TopBar(props: {
         )}
         {props.onSetup === undefined ? null : (
           <button
-            className="glass-icon"
+            className="icon-button"
             type="button"
             onClick={props.onSetup}
             aria-label="Open setup"
@@ -63,8 +69,9 @@ export function TopBar(props: {
             <Settings2 size={16} />
           </button>
         )}
-        <button className="glass-icon" type="button" aria-label="Messages" tabIndex={-1}>
-          <Mail size={16} />
+        <button className="button button-ink button-small sign-in-chip" type="button" tabIndex={-1}>
+          <UserRound size={14} />
+          Sign in
         </button>
       </div>
     </header>

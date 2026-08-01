@@ -1,32 +1,45 @@
 import type { Message } from '@flow/contracts';
 import {
+  ArrowLeftRight,
   ArrowUp,
   Bot,
   CalendarDays,
+  ChevronDown,
   Clock3,
   Plane,
-  Share2,
   ShieldCheck,
-  Ticket,
   UserRound,
+  Users,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-const prompts = [
+const savedTrips = [
   {
-    icon: Ticket,
-    title: 'Movie night',
-    text: 'Find two adjacent center seats for a movie this weekend under ₹1,500 total.',
+    airline: 'Flow Demo Air',
+    from: 'BLR',
+    to: 'SIN',
+    depart: '08:40',
+    arrive: '14:05',
+    date: 'Sep 10',
+    prompt: 'Compare refundable flights from Bengaluru to Singapore next month under $650',
   },
   {
-    icon: Plane,
-    title: 'Flexible flight',
-    text: 'Compare refundable flights from Bengaluru to Singapore next month, one stop max.',
+    airline: 'District Cinema',
+    from: 'HYD',
+    to: 'MOV',
+    depart: '19:30',
+    arrive: '22:10',
+    date: 'Sat',
+    prompt: 'Find two adjacent center seats for a movie this weekend under ₹1,500 total.',
   },
   {
-    icon: CalendarDays,
-    title: 'Reserve ahead',
-    text: 'Schedule a restaurant search for next Friday at 8 PM for four people.',
+    airline: 'Coastal Stay',
+    from: 'GOA',
+    to: 'HTL',
+    depart: 'Check-in',
+    arrive: '2 nts',
+    date: 'Fri',
+    prompt: 'Schedule a hotel search in Goa next Friday for two nights, free cancellation.',
   },
 ] as const;
 
@@ -60,6 +73,10 @@ export function ChatView(props: {
   onOpenSetup?: () => void;
 }): React.JSX.Element {
   const [draft, setDraft] = useState('');
+  const [from, setFrom] = useState('Bengaluru (BLR)');
+  const [to, setTo] = useState('Singapore (SIN)');
+  const [departDate, setDepartDate] = useState('2026-09-10');
+  const [party, setParty] = useState('1');
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const showHero = props.messages.length === 0;
@@ -75,71 +92,152 @@ export function ChatView(props: {
     void props.onSend(content);
   };
 
+  const searchFlights = (): void => {
+    const query = `Find flights from ${from} to ${to} departing ${departDate} for ${party} traveler${party === '1' ? '' : 's'}, best total price, refundable if possible.`;
+    submit(query);
+  };
+
+  const swapRoute = (): void => {
+    setFrom(to);
+    setTo(from);
+  };
+
   return (
     <div className={`chat-view ${showHero ? 'chat-view-hero' : ''}`}>
       <div className="chat-scroll">
         {showHero ? (
-          <section className="hero-stage" aria-label="Flow hero">
-            <div className="hero-media" aria-hidden="true">
-              <img src="/assets/iceland-flow-hero.webp" alt="" className="hero-image" />
-              <div className="hero-veil" />
-            </div>
-            <div className="hero-content">
-              <div className="hero-brand-block">
-                <p className="hero-kicker">Flow</p>
-                <h1 className="hero-title">Book anything</h1>
-                <p className="hero-support">Best verified price. Your approval before checkout.</p>
+          <section className="plan-stage" aria-label="Plan your trip">
+            <div className="plan-glow" aria-hidden="true" />
+            <header className="plan-heading">
+              <div>
+                <p className="plan-kicker">Flow</p>
+                <h1>Plan your trip</h1>
+              </div>
+              <button
+                type="button"
+                className="plan-avatar"
+                onClick={props.onOpenSetup}
+                aria-label="Open setup"
+              >
+                F
+              </button>
+            </header>
+
+            <div className="frost-card">
+              <div className="route-stack">
+                <label className="route-field">
+                  <span>From</span>
+                  <input
+                    value={from}
+                    onChange={(event) => setFrom(event.target.value)}
+                    aria-label="From"
+                  />
+                </label>
                 <button
                   type="button"
-                  className="button button-pill-light hero-order"
-                  onClick={() => {
-                    composerRef.current?.focus();
-                    submit(prompts[1].text);
-                  }}
+                  className="route-swap"
+                  onClick={swapRoute}
+                  aria-label="Swap origin and destination"
                 >
-                  Order
+                  <ArrowLeftRight size={16} />
                 </button>
+                <label className="route-field">
+                  <span>To</span>
+                  <input
+                    value={to}
+                    onChange={(event) => setTo(event.target.value)}
+                    aria-label="To"
+                  />
+                </label>
               </div>
-              <div className="hero-footer">
-                <span>Other services</span>
-                <button
-                  type="button"
-                  className="glass-pill hero-more"
-                  onClick={props.onOpenSetup}
-                  aria-label="Open setup and other services"
-                >
-                  ···
-                </button>
-              </div>
-            </div>
-            <div className="hero-below">
-              <div className="hero-prompts" aria-label="Suggested requests">
-                {prompts.map((prompt) => {
-                  const Icon = prompt.icon;
-                  return (
-                    <button
-                      key={prompt.title}
-                      type="button"
-                      className="hero-prompt"
-                      disabled={props.sending}
-                      onClick={() => submit(prompt.text)}
+
+              <div className="trip-meta-row">
+                <label className="meta-chip">
+                  <span>Departure</span>
+                  <span className="meta-chip-value">
+                    <CalendarDays size={15} />
+                    <input
+                      type="date"
+                      value={departDate}
+                      onChange={(event) => setDepartDate(event.target.value)}
+                      aria-label="Departure date"
+                    />
+                  </span>
+                </label>
+                <label className="meta-chip">
+                  <span>Travelers</span>
+                  <span className="meta-chip-value">
+                    <Users size={15} />
+                    <select
+                      value={party}
+                      onChange={(event) => setParty(event.target.value)}
+                      aria-label="Travelers"
                     >
-                      <Icon size={16} />
-                      <span>
-                        <strong>{prompt.title}</strong>
-                        <small>{prompt.text}</small>
-                      </span>
-                    </button>
-                  );
-                })}
+                      {['1', '2', '3', '4', '5', '6'].map((count) => (
+                        <option key={count} value={count}>
+                          {count}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} />
+                  </span>
+                </label>
               </div>
-              {!props.modelConfigured ? (
-                <div className="hero-notice">
-                  <Bot size={16} />
-                  Planner uses the local fallback until OPENAI_API_KEY is set — bookings still run.
-                </div>
-              ) : null}
+
+              <button
+                type="button"
+                className="button button-ink button-full"
+                disabled={props.sending}
+                onClick={searchFlights}
+              >
+                <Plane size={16} />
+                Search flights
+              </button>
             </div>
+
+            <section className="saved-trips">
+              <div className="saved-trips-head">
+                <h2>Saved trips</h2>
+                <span>Tap to book</span>
+              </div>
+              <div className="saved-trips-rail">
+                {savedTrips.map((trip) => (
+                  <button
+                    key={trip.prompt}
+                    type="button"
+                    className="saved-trip-card"
+                    disabled={props.sending}
+                    onClick={() => submit(trip.prompt)}
+                  >
+                    <div className="saved-trip-airline">
+                      <span className="airline-mark">{trip.airline.slice(0, 1)}</span>
+                      <strong>{trip.airline}</strong>
+                    </div>
+                    <div className="saved-trip-route">
+                      <div>
+                        <b>{trip.depart}</b>
+                        <small>{trip.from}</small>
+                      </div>
+                      <div className="saved-trip-line" aria-hidden="true">
+                        <Plane size={12} />
+                      </div>
+                      <div>
+                        <b>{trip.arrive}</b>
+                        <small>{trip.to}</small>
+                      </div>
+                    </div>
+                    <span className="saved-trip-date">{trip.date}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {!props.modelConfigured ? (
+              <p className="plan-note">
+                <Bot size={14} /> Local planner is active — searches still create real demo
+                bookings.
+              </p>
+            ) : null}
           </section>
         ) : (
           <div className="message-list">
@@ -194,7 +292,9 @@ export function ChatView(props: {
               }
             }}
             rows={1}
-            placeholder="Describe anything you want to book…"
+            placeholder={
+              showHero ? 'Or describe anything to book…' : 'Describe anything you want to book…'
+            }
             aria-label="Message Flow"
           />
           <button
@@ -218,11 +318,6 @@ export function ChatView(props: {
           </div>
         ) : null}
       </div>
-      {showHero ? (
-        <button type="button" className="hero-share glass-icon" aria-label="Share Flow">
-          <Share2 size={16} />
-        </button>
-      ) : null}
     </div>
   );
 }
