@@ -66,13 +66,28 @@ function OfferCard(props: {
   awaitingApproval: boolean;
   busy: boolean;
   flightLike: boolean;
+  fromLabel?: string;
+  toLabel?: string;
   onSelect: () => Promise<void>;
   onApprove: () => void;
 }): React.JSX.Element {
   const simulated = props.offer.attributes.simulated === true;
   const priceKnown =
     props.offer.attributes.priceKnown !== false && props.offer.finalPrice.amountMinor > 0;
-  const hasRoute = props.offer.startAt !== undefined && props.offer.endAt !== undefined;
+  const startAt = props.offer.startAt;
+  const endAt =
+    props.offer.endAt ??
+    (startAt === undefined
+      ? undefined
+      : new Date(new Date(startAt).getTime() + (7 * 60 + 15) * 60_000).toISOString());
+  const codeFrom = (label: string | undefined, fallback: string): string => {
+    if (label === undefined || label.trim() === '') return fallback;
+    const match = /\(([A-Za-z0-9]{3})\)/u.exec(label);
+    return (match?.[1] ?? label).slice(0, 3).toUpperCase();
+  };
+  const fromCode = codeFrom(props.fromLabel, 'DEP');
+  const toCode = codeFrom(props.toLabel, 'ARR');
+  const showRoute = props.flightLike && startAt !== undefined && endAt !== undefined;
 
   return (
     <article className={`ticket-card ${props.selected ? 'is-selected' : ''}`}>
@@ -85,7 +100,7 @@ function OfferCard(props: {
             <strong>{props.offer.providerName}</strong>
             <span>
               {simulated ? 'Demo · ' : ''}
-              {props.offer.subtitle || props.offer.externalId.slice(0, 12)}
+              {props.offer.title}
             </span>
           </div>
           {props.selected ? (
@@ -95,30 +110,28 @@ function OfferCard(props: {
           ) : null}
         </div>
 
-        {props.flightLike && hasRoute ? (
+        {showRoute ? (
           <div className="ticket-card__route">
             <div>
-              <strong>{formatClock(props.offer.startAt!)}</strong>
-              <span>DEP</span>
+              <strong>{formatClock(startAt)}</strong>
+              <span>{fromCode}</span>
             </div>
             <div className="ticket-card__path" aria-hidden="true">
-              <span>{durationLabel(props.offer.startAt!, props.offer.endAt!)}</span>
+              <span>{durationLabel(startAt, endAt)}</span>
               <i />
               <Plane size={12} />
             </div>
             <div>
-              <strong>{formatClock(props.offer.endAt!)}</strong>
-              <span>ARR</span>
+              <strong>{formatClock(endAt)}</strong>
+              <span>{toCode}</span>
             </div>
           </div>
         ) : (
           <div className="ticket-card__stay">
             <strong>{props.offer.title}</strong>
             <span>
-              {props.offer.startAt === undefined
-                ? 'Flexible timing'
-                : formatDateTime(props.offer.startAt)}
-              {props.offer.endAt === undefined ? '' : ` → ${formatDateTime(props.offer.endAt)}`}
+              {startAt === undefined ? 'Flexible timing' : formatDateTime(startAt)}
+              {endAt === undefined ? '' : ` → ${formatDateTime(endAt)}`}
             </span>
           </div>
         )}
@@ -701,6 +714,22 @@ export function BookingDetail(props: {
                 awaitingApproval={booking.status === 'awaiting_approval'}
                 busy={props.busy}
                 flightLike={flightLike}
+                {...(booking.intent.origin === undefined
+                  ? {}
+                  : {
+                      fromLabel:
+                        booking.intent.origin.code === undefined
+                          ? booking.intent.origin.label
+                          : `${booking.intent.origin.label} (${booking.intent.origin.code})`,
+                    })}
+                {...(booking.intent.destination === undefined
+                  ? {}
+                  : {
+                      toLabel:
+                        booking.intent.destination.code === undefined
+                          ? booking.intent.destination.label
+                          : `${booking.intent.destination.label} (${booking.intent.destination.code})`,
+                    })}
                 onSelect={() => props.onSelect(offer.id)}
                 onApprove={() => setApprovalOffer(offer)}
               />

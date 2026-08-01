@@ -107,6 +107,9 @@ export class DemoProvider implements BookingProvider {
           : [];
       const startAt =
         booking.intent.timeWindow?.start ?? new Date(now.getTime() + 86_400_000).toISOString();
+      const endAt = new Date(
+        new Date(startAt).getTime() + (7 * 60 + 15 + index * 25) * 60_000,
+      ).toISOString();
       const pricedQuantity = booking.intent.seatPreference?.count ?? booking.intent.partySize;
       offers.push({
         id: randomUUID(),
@@ -117,6 +120,7 @@ export class DemoProvider implements BookingProvider {
         title: titleFor(booking.intent.category, booking.intent.title, index),
         subtitle: 'Simulated inventory for local development and end-to-end testing',
         startAt,
+        endAt,
         basePrice: money(baseAmount, currency),
         fees: money(feeAmount, currency),
         taxes: money(0, currency),

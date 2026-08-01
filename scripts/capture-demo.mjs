@@ -90,11 +90,11 @@ async function main() {
   await dismissSetup(page);
   await page.waitForTimeout(1_200);
 
-  // Setup completion creates a fresh conversation → immersive hero
-  await page.getByRole('heading', { name: /Book anything/i }).waitFor({ timeout: 12_000 });
+  // Setup completion creates a fresh conversation → plan-your-trip stage
+  await page.getByRole('heading', { name: /Plan your trip/i }).waitFor({ timeout: 12_000 });
   await page.screenshot({ path: path.join(shotDir, '01-hero.png'), fullPage: false });
 
-  await page.getByRole('button', { name: /^Order$/i }).click();
+  await page.getByRole('button', { name: /Search flights/i }).click();
   await page.waitForTimeout(3_500);
   await page.screenshot({ path: path.join(shotDir, '03-chat.png'), fullPage: false });
 
@@ -106,14 +106,29 @@ async function main() {
   await page.waitForTimeout(1_100);
   await page.screenshot({ path: path.join(shotDir, '04-accounts-webcmd.png'), fullPage: false });
 
-  await openSidebar(page);
-  await page
-    .locator('.sidebar')
-    .getByRole('button', { name: /^Bookings$/i })
-    .click({ force: true });
-  await page.waitForTimeout(1_100);
+  // Close any open overlay, then open bookings via top nav or sidebar
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  const topFlights = page.locator('.top-nav').getByRole('button', { name: /^Flights$/i });
+  if (await topFlights.isVisible().catch(() => false)) {
+    await topFlights.click();
+  } else {
+    await openSidebar(page);
+    await page
+      .locator('.sidebar')
+      .getByRole('button', { name: /^Bookings$/i })
+      .click({ force: true });
+  }
+  await page.waitForTimeout(1_400);
   await page.screenshot({ path: path.join(shotDir, '05-bookings.png'), fullPage: false });
 
+  // Ticket-style offers if the search produced a booking with options
+  const selectFlight = page
+    .getByRole('button', { name: /Select flight|Select stay|Select offer/i })
+    .first();
+  if (await selectFlight.isVisible().catch(() => false)) {
+    await page.screenshot({ path: path.join(shotDir, '06-tickets.png'), fullPage: false });
+  }
   const video = page.video();
   await context.close();
   await browser.close();

@@ -864,9 +864,9 @@ code {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 999px;
   color: #fff;
-  background: var(--accent);
+  background: var(--ink-btn);
   cursor: pointer;
 }
 
