@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  isDoctorHealthy,
   isWebcmdAvailable,
-  parseJsonSafe,
   webcmdDoctor,
   webcmdVersion,
 } from "@/lib/webcmd";
@@ -29,8 +29,6 @@ export async function GET(request: Request) {
     listAccounts(),
   ]);
 
-  const doctorJson = parseJsonSafe<Record<string, unknown>>(doctor.stdout);
-
   return NextResponse.json({
     ok: true,
     os,
@@ -43,8 +41,8 @@ export async function GET(request: Request) {
     webcmd: {
       available,
       version: version.stdout || null,
-      doctorOk: doctor.ok,
-      doctor: doctorJson || {
+      doctorOk: isDoctorHealthy(doctor),
+      doctor: {
         stdout: doctor.stdout,
         stderr: doctor.stderr,
         code: doctor.code,
@@ -56,5 +54,14 @@ export async function GET(request: Request) {
       count: accounts.accounts.length,
     },
     composioConfigured: Boolean(process.env.COMPOSIO_API_KEY),
+    mcp: {
+      server: "Composio",
+      tools: [
+        "COMPOSIO_SEARCH_TOOLS",
+        "COMPOSIO_MANAGE_CONNECTIONS",
+        "COMPOSIO_WAIT_FOR_CONNECTIONS",
+      ],
+      hint: "In Cursor, enable the Composio MCP server, then ask: “Connect my Gmail with Composio”.",
+    },
   });
 }

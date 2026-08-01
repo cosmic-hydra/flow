@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, ListTree, Stethoscope } from "lucide-react";
+import { Activity, ListTree, Stethoscope, Terminal } from "lucide-react";
 
 type WebcmdStatus = {
   ok: boolean;
   version?: string;
-  doctor?: { ok: boolean; stderr?: string };
-  list?: { ok: boolean; parsed?: unknown };
+  doctor?: { ok: boolean; summary?: string; stderr?: string };
+  list?: { ok: boolean; count?: number | null; parsed?: unknown };
 };
 
 export function WebcmdPanel() {
@@ -40,11 +40,25 @@ export function WebcmdPanel() {
         body: JSON.stringify({ args: ["list", "-f", "json"] }),
       });
       const data = await res.json();
-      const preview = JSON.stringify(
-        data.parsed || data.result?.stdout || data,
-        null,
-        2,
-      ).slice(0, 1800);
+      const count = Array.isArray(data.parsed) ? data.parsed.length : null;
+      const preview =
+        count != null
+          ? JSON.stringify(
+              {
+                ok: data.ok,
+                adapters: count,
+                sample: (data.parsed as unknown[]).slice(0, 6).map((row) => {
+                  const r = row as { command?: string; site?: string; name?: string };
+                  return r.command || `${r.site}/${r.name}`;
+                }),
+              },
+              null,
+              2,
+            )
+          : JSON.stringify(data.parsed || data.result?.stdout || data, null, 2).slice(
+              0,
+              1800,
+            );
       setRunOut(preview);
       await refresh();
     } finally {
@@ -52,9 +66,9 @@ export function WebcmdPanel() {
     }
   }
 
-  const adapterCount = Array.isArray(status?.list?.parsed)
-    ? status?.list?.parsed.length
-    : null;
+  const adapterCount =
+    status?.list?.count ??
+    (Array.isArray(status?.list?.parsed) ? status?.list?.parsed.length : null);
 
   return (
     <section className="rounded-3xl border border-white/10 bg-ink-900/45 p-5 backdrop-blur-md">
@@ -101,8 +115,9 @@ export function WebcmdPanel() {
       <button
         type="button"
         onClick={() => void runList()}
-        className="mt-4 w-full rounded-full border border-tide-400/30 bg-tide-500/10 px-4 py-2 text-sm text-tide-200 hover:bg-tide-500/20"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-tide-400/30 bg-tide-500/10 px-4 py-2 text-sm text-tide-200 hover:bg-tide-500/20"
       >
+        <Terminal className="h-3.5 w-3.5" />
         Run `webcmd list`
       </button>
 

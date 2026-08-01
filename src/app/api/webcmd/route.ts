@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  isDoctorHealthy,
   parseJsonSafe,
   webcmdDoctor,
   webcmdList,
@@ -23,8 +24,9 @@ export async function GET(request: Request) {
   if (action === "doctor") {
     const result = await webcmdDoctor();
     return NextResponse.json({
-      ok: result.ok,
+      ok: isDoctorHealthy(result),
       result,
+      summary: result.stdout,
       parsed: parseJsonSafe(result.stdout),
     });
   }
@@ -44,17 +46,22 @@ export async function GET(request: Request) {
     webcmdList(),
   ]);
 
+  const listParsed = parseJsonSafe(list.stdout);
+  const adapterCount = Array.isArray(listParsed) ? listParsed.length : null;
+
   return NextResponse.json({
     ok: version.ok || Boolean(version.stdout),
     version: version.stdout,
     doctor: {
-      ok: doctor.ok,
+      ok: isDoctorHealthy(doctor),
+      summary: doctor.stdout,
       parsed: parseJsonSafe(doctor.stdout),
       stderr: doctor.stderr,
     },
     list: {
       ok: list.ok,
-      parsed: parseJsonSafe(list.stdout),
+      count: adapterCount,
+      parsed: listParsed,
       stderr: list.stderr,
     },
   });

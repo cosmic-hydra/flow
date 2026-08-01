@@ -22,6 +22,7 @@ type SetupStatus = {
   webcmd: { available: boolean; version: string | null; doctorOk: boolean };
   accounts: { count: number; mode: string };
   composioConfigured: boolean;
+  mcp?: { hint?: string };
 };
 
 type Toolkit = {
@@ -108,6 +109,7 @@ export function SetupDialog({
         doctor: "webcmd doctor",
         skills: "webcmd skills add",
         composio: "npm install -g @composio/cli && composio login",
+        flow: "git clone https://github.com/cosmic-hydra/flow.git && cd flow && npm install && npm run dev",
       };
     }
     if (selectedOs === "macos") {
@@ -117,6 +119,7 @@ export function SetupDialog({
         doctor: "webcmd doctor",
         skills: "webcmd skills add",
         composio: "npm install -g @composio/cli && composio login",
+        flow: "git clone https://github.com/cosmic-hydra/flow.git && cd flow && npm install && npm run dev",
       };
     }
     return {
@@ -125,6 +128,7 @@ export function SetupDialog({
       doctor: "webcmd doctor",
       skills: "webcmd skills add",
       composio: "npm install -g @composio/cli && composio login",
+      flow: "git clone https://github.com/cosmic-hydra/flow.git && cd flow && npm install && npm run dev",
     };
   }, [selectedOs, status]);
 
@@ -156,6 +160,23 @@ export function SetupDialog({
       void refreshStatus();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  const mcpSnippet = `{
+  "mcpServers": {
+    "composio": {
+      "url": "https://mcp.composio.dev"
+    }
+  }
+}`;
 
   async function connectToolkit(toolkit: string, demo = false) {
     setLinking(toolkit);
@@ -377,7 +398,15 @@ export function SetupDialog({
                     .
                   </p>
                   {commands ? (
-                    <CommandBlock label="Install Node" command={commands.node} />
+                    <>
+                      <CommandBlock label="Install Node" command={commands.node} />
+                      {"flow" in commands && commands.flow ? (
+                        <CommandBlock
+                          label={`Clone & run Flow (${selectedOs})`}
+                          command={commands.flow}
+                        />
+                      ) : null}
+                    </>
                   ) : null}
                   <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/70">
                     After installing, restart your terminal, then continue. You can
@@ -435,8 +464,32 @@ export function SetupDialog({
                 <div className="space-y-4">
                   <p className="text-sand-100/80">
                     Link accounts with Composio for confirmations, calendars, and
-                    team sharing. Works with Composio MCP in Cursor too.
+                    team sharing — in-app OAuth or Cursor’s Composio MCP.
                   </p>
+
+                  <div className="rounded-2xl border border-tide-400/25 bg-tide-500/10 p-4">
+                    <h3 className="text-sm font-medium text-sand-50">
+                      Easy path: Composio MCP in Cursor
+                    </h3>
+                    <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-sm text-white/70">
+                      <li>Enable the Composio MCP server in Cursor Settings → MCP</li>
+                      <li>
+                        Ask: “Connect my Gmail with Composio” (uses{" "}
+                        <code className="text-tide-300">
+                          COMPOSIO_MANAGE_CONNECTIONS
+                        </code>
+                        )
+                      </li>
+                      <li>Open the auth link, finish OAuth, then refresh here</li>
+                    </ol>
+                    <div className="mt-3">
+                      <CommandBlock
+                        label="Cursor MCP snippet"
+                        command={mcpSnippet}
+                      />
+                    </div>
+                  </div>
+
                   {commands ? (
                     <CommandBlock
                       label="Optional Composio CLI"

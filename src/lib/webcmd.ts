@@ -69,7 +69,14 @@ function runProcess(
 }
 
 export async function webcmdDoctor(): Promise<WebcmdResult> {
-  return runProcess(WEBCMD_BIN, ["doctor", "--json"], 20000);
+  // webcmd doctor has no --json flag in v0.5.x; parse text output instead.
+  return runProcess(WEBCMD_BIN, ["doctor"], 20000);
+}
+
+export function isDoctorHealthy(result: WebcmdResult): boolean {
+  if (result.ok) return true;
+  const text = `${result.stdout}\n${result.stderr}`;
+  return /Everything looks good/i.test(text) || /\[OK\].*Daemon/i.test(text);
 }
 
 export async function webcmdList(): Promise<WebcmdResult> {

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUp,
+  Eraser,
   Loader2,
   Settings2,
   Sparkles,
@@ -23,7 +24,10 @@ const SUGGESTIONS = [
   "JR Pass 7-day best price",
 ];
 
-type UiMessage = ChatMessage & { deals?: Deal[] };
+type UiMessage = ChatMessage & {
+  deals?: Deal[];
+  source?: "webcmd" | "demo" | "hybrid";
+};
 
 export function FlowApp() {
   const [setupOpen, setSetupOpen] = useState(false);
@@ -80,7 +84,13 @@ export function FlowApp() {
       });
       const data = await res.json();
       if (!data.ok) throw new Error("Chat failed");
-      setMessages((m) => [...m, data.message]);
+      setMessages((m) => [
+        ...m,
+        {
+          ...data.message,
+          source: data.source,
+        },
+      ]);
     } catch (err) {
       setMessages((m) => [
         ...m,
@@ -113,9 +123,13 @@ export function FlowApp() {
 
       <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-tide-500/20 ring-1 ring-tide-400/30">
+          <motion.div
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-tide-500/20 ring-1 ring-tide-400/30"
+          >
             <Waves className="h-5 w-5 text-tide-300" />
-          </div>
+          </motion.div>
           <div>
             <div className="font-display text-2xl leading-none tracking-tight">
               flow
@@ -130,6 +144,16 @@ export function FlowApp() {
             webcmd {health?.webcmd ? "on" : "demo"} · composio{" "}
             {health?.composio ? "live" : "demo"}
           </span>
+          {!showHero ? (
+            <button
+              type="button"
+              onClick={() => setMessages([])}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/60 hover:text-sand-100"
+            >
+              <Eraser className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setSetupOpen(true)}
@@ -159,7 +183,7 @@ export function FlowApp() {
                     transition={{ delay: 0.1 }}
                     className="mb-3 inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-tide-300"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkles className="h-3.5 w-3.5 animate-pulse-soft" />
                     Deal automation
                   </motion.p>
                   <motion.h1
@@ -191,7 +215,7 @@ export function FlowApp() {
                         key={s}
                         type="button"
                         onClick={() => void send(s)}
-                        className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-left text-sm text-sand-100/80 hover:border-tide-400/40 hover:bg-tide-500/10"
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-left text-sm text-sand-100/80 transition hover:border-tide-400/40 hover:bg-tide-500/10"
                       >
                         {s}
                       </button>
@@ -222,6 +246,11 @@ export function FlowApp() {
                         m.content
                       )}
                     </div>
+                    {m.role === "assistant" && m.source ? (
+                      <div className="mt-1.5 text-[11px] uppercase tracking-[0.14em] text-white/35">
+                        source · {m.source}
+                      </div>
+                    ) : null}
                     {m.deals && m.deals.length > 0 ? (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         {m.deals.map((deal, i) => (
@@ -246,7 +275,7 @@ export function FlowApp() {
             onSubmit={onSubmit}
             className="border-t border-white/10 p-4 sm:p-5"
           >
-            <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-ink-950/50 p-2 pl-4 focus-within:border-tide-400/40">
+            <div className="flex items-end gap-3 rounded-2xl border border-white/10 bg-ink-950/50 p-2 pl-4 transition focus-within:border-tide-400/40">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -272,7 +301,7 @@ export function FlowApp() {
           </form>
         </section>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 lg:sticky lg:top-6 lg:self-start">
           <AccountsPanel onOpenSetup={() => setSetupOpen(true)} />
           <WebcmdPanel />
         </div>

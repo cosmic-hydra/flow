@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link2, Loader2, PlugZap, RefreshCw } from "lucide-react";
+import { Link2, Loader2, PlugZap, RefreshCw, Sparkles } from "lucide-react";
 
 type Account = {
   id: string;
@@ -46,20 +46,23 @@ export function AccountsPanel({
     void load();
   }, []);
 
-  async function connect(toolkit: string) {
+  async function connect(toolkit: string, demo = false) {
     setBusy(toolkit);
     setMessage(null);
     try {
       const res = await fetch("/api/accounts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolkit, action: "connect" }),
+        body: JSON.stringify({
+          toolkit,
+          action: demo ? "demo-link" : "connect",
+        }),
       });
       const data = await res.json();
-      if (data.account?.redirectUrl) {
+      if (!demo && data.account?.redirectUrl) {
         window.open(data.account.redirectUrl, "_blank", "noopener,noreferrer");
       }
-      setMessage(data.message || "Auth link opened");
+      setMessage(data.message || (demo ? "Demo linked" : "Auth link opened"));
       await load();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed");
@@ -87,10 +90,21 @@ export function AccountsPanel({
         </button>
       </div>
 
-      <p className="mb-4 text-sm text-white/55">
+      <p className="mb-3 text-sm text-white/55">
         Connect via Composio MCP / OAuth. Mode:{" "}
         <span className="text-tide-300">{mode}</span>
       </p>
+
+      <div className="mb-4 rounded-xl border border-tide-400/20 bg-tide-500/5 px-3 py-2.5 text-xs leading-relaxed text-white/65">
+        <span className="inline-flex items-center gap-1 text-tide-300">
+          <Sparkles className="h-3 w-3" />
+          Cursor tip
+        </span>
+        <span className="mt-1 block">
+          Ask your agent: “Connect my Gmail with Composio” — uses{" "}
+          <code className="text-tide-200">COMPOSIO_MANAGE_CONNECTIONS</code>.
+        </span>
+      </div>
 
       <div className="mb-4 space-y-2">
         {accounts.length === 0 ? (
@@ -116,25 +130,41 @@ export function AccountsPanel({
       <div className="mb-3 text-xs uppercase tracking-[0.16em] text-white/40">
         Quick link
       </div>
-      <div className="space-y-2 overflow-y-auto pr-1">
+      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
         {toolkits.slice(0, 5).map((tk) => (
-          <button
+          <div
             key={tk.id}
-            type="button"
-            disabled={busy === tk.id}
-            onClick={() => void connect(tk.id)}
-            className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-ink-950/40 px-3 py-2.5 text-left hover:border-tide-400/40 disabled:opacity-60"
+            className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-ink-950/40 px-3 py-2.5"
           >
-            <span>
-              <span className="block text-sm text-sand-50">{tk.name}</span>
-              <span className="block text-xs text-white/45">{tk.description}</span>
-            </span>
-            {busy === tk.id ? (
-              <Loader2 className="h-4 w-4 animate-spin text-tide-300" />
-            ) : (
-              <Link2 className="h-4 w-4 text-tide-300" />
-            )}
-          </button>
+            <div className="min-w-0">
+              <div className="truncate text-sm text-sand-50">{tk.name}</div>
+              <div className="truncate text-xs text-white/45">{tk.description}</div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                disabled={busy === tk.id}
+                onClick={() => void connect(tk.id, true)}
+                className="rounded-lg px-2 py-1 text-[11px] text-white/45 hover:bg-white/5 hover:text-sand-100 disabled:opacity-60"
+              >
+                Demo
+              </button>
+              <button
+                type="button"
+                disabled={busy === tk.id}
+                onClick={() => void connect(tk.id, false)}
+                className="inline-flex items-center gap-1 rounded-lg border border-tide-400/30 bg-tide-500/10 px-2 py-1 text-xs text-tide-200 hover:bg-tide-500/20 disabled:opacity-60"
+                aria-label={`Link ${tk.name}`}
+              >
+                {busy === tk.id ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Link2 className="h-3.5 w-3.5" />
+                )}
+                Link
+              </button>
+            </div>
+          </div>
         ))}
       </div>
 

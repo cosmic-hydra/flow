@@ -5,6 +5,7 @@
 const { chromium } = require("playwright");
 const path = require("path");
 const fs = require("fs");
+const { spawnSync } = require("child_process");
 
 const base = process.env.FLOW_URL || "http://localhost:3000";
 const outDir = path.join(process.cwd(), "demo");
@@ -53,12 +54,20 @@ async function main() {
   await page.getByRole("button", { name: "macOS" }).click();
   await page.waitForTimeout(200);
 
-  // Walk remaining setup: Runtime -> Webcmd -> Accounts -> Done
-  for (let i = 0; i < 4; i++) {
+  // Runtime -> Webcmd -> Accounts
+  for (let i = 0; i < 3; i++) {
     await page.getByRole("button", { name: "Continue" }).click();
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(450);
   }
 
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(shotDir, "02c-setup-accounts.png"),
+    fullPage: false,
+  });
+
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.waitForTimeout(400);
   await page.getByRole("button", { name: /Enter Flow/i }).click();
   await page.waitForTimeout(700);
 
@@ -71,10 +80,12 @@ async function main() {
     .getByRole("button", { name: /Tokyo flights under \$650/i })
     .first()
     .click();
-  await page.waitForSelector("text=Searching deals", {
-    state: "detached",
-    timeout: 20000,
-  }).catch(() => {});
+  await page
+    .waitForSelector("text=Searching deals", {
+      state: "detached",
+      timeout: 45000,
+    })
+    .catch(() => {});
   await page.waitForTimeout(1200);
 
   await page.screenshot({
@@ -102,13 +113,30 @@ async function main() {
 
   if (video) {
     const videoPath = await video.path();
-    const dest = path.join(outDir, "flow-demo.webm");
-    fs.copyFileSync(videoPath, dest);
-    fs.copyFileSync(dest, path.join(artifactsDir, "flow-demo.webm"));
+    const webmDest = path.join(outDir, "flow-demo.webm");
+    const mp4Dest = path.join(outDir, "flow-demo.mp4");
+    fs.copyFileSync(videoPath, webmDest);
+    fs.copyFileSync(webmDest, path.join(artifactsDir, "flow-demo.webm"));
+
+    const ff = spawnSync(
+      "ffmpeg",
+      ["-y", "-i", webmDest, "-c:v", "libx264", "-pix_fmt", "yuv420p", mp4Dest],
+      { encoding: "utf8" },
+    );
+    if (ff.status === 0 && fs.existsSync(mp4Dest)) {
+      fs.copyFileSync(mp4Dest, path.join(artifactsDir, "flow-demo.mp4"));
+      console.log("Wrote", mp4Dest);
+    } else {
+      console.warn(
+        "ffmpeg mp4 conversion skipped/failed",
+        ff.stderr?.slice(-200),
+      );
+    }
+
     try {
       fs.rmSync(path.join(outDir, "video-tmp"), { recursive: true, force: true });
     } catch {}
-    console.log("Wrote", dest);
+    console.log("Wrote", webmDest);
   }
 
   for (const f of fs.readdirSync(shotDir)) {

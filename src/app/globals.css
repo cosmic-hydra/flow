@@ -5,9 +5,6 @@
 :root {
   --background: #061018;
   --foreground: #f7f4ef;
-  --font-display: "Bricolage Grotesque", Georgia, serif;
-  --font-sans: "Figtree", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
 * {

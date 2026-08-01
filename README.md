@@ -32,16 +32,25 @@ On first visit, Flow opens a setup dialog:
 
 1. Welcome — what Flow does
 2. Your device — macOS / Windows / Linux commands
-3. Runtime — Node.js install snippets
+3. Runtime — Node.js + clone/run snippets
 4. Webcmd — install, doctor, skills
-5. Accounts — one-click Composio auth links
+5. Accounts — one-click Composio auth + Cursor MCP instructions
 6. Ready — enter the workspace
 
 Re-open anytime with **Setup** in the header.
 
+### Composio MCP (Cursor)
+
+1. Enable the Composio MCP server in Cursor
+2. Ask: “Connect my Gmail account with Composio”
+3. Finish OAuth from the auth link
+4. Refresh Flow’s Accounts panel (or re-open Setup → Accounts)
+
+With `COMPOSIO_API_KEY`, in-app **Link** buttons start the same OAuth flow.
+
 ## Webcmd
 
-Flow shells out to [`@agentrhq/webcmd`](https://github.com/agentrhq/webcmd) for adapter discovery and live searches.
+Flow shells out to [`@agentrhq/webcmd`](https://github.com/agentrhq/webcmd) for adapter discovery and live searches (`trip deals`, `booking search`, `trip flight`, …).
 
 ```bash
 npx webcmd --version
@@ -54,16 +63,12 @@ API:
 - `GET /api/webcmd` — version, doctor, list
 - `POST /api/webcmd` — `{ "args": ["list", "-f", "json"] }`
 
-If the browser bridge is offline, Flow still returns ranked **demo deals** so the product remains usable.
+If a live adapter fails (CAPTCHA / empty), Flow still returns ranked **demo deals** so the product remains usable.
 
 ## Composio accounts
 
 - `GET /api/accounts` — linked accounts + toolkit catalog
-- `POST /api/accounts` — `{ "toolkit": "gmail", "action": "connect" }`
-
-With `COMPOSIO_API_KEY`, Flow initiates real OAuth redirect URLs. Without it, demo links and local demo-linked accounts still work.
-
-In Cursor, you can also connect apps through the **Composio MCP** server (`COMPOSIO_MANAGE_CONNECTIONS`) — same accounts, agent-native.
+- `POST /api/accounts` — `{ "toolkit": "gmail", "action": "connect" | "demo-link" }`
 
 ## API map
 
@@ -80,8 +85,11 @@ In Cursor, you can also connect apps through the **Composio MCP** server (`COMPO
 
 See [`demo/`](./demo) for screenshots, a walkthrough video, and a scripted tour.
 
+<img src="./demo/screenshots/01-hero.png" alt="Flow hero" width="720" />
+
 ```bash
-npm run test:api   # smoke-test APIs (server must be running)
+npm run test:api      # smoke-test APIs (server must be running)
+npm run demo:capture  # regenerate screenshots + video
 ```
 
 ## Scripts
@@ -92,6 +100,7 @@ npm run test:api   # smoke-test APIs (server must be running)
 | `npm run build` | Production build |
 | `npm start` | Production server |
 | `npm run test:api` | API smoke tests |
+| `npm run demo:capture` | Capture demo screenshots/video |
 | `npm run lint` | ESLint |
 
 ## License
